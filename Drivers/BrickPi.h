@@ -3,7 +3,7 @@
 *  matthewrichardson37<at>gmail.com
 *  http://mattallen37.wordpress.com/
 *  Initial date: June 4, 2013
-*  Last updated: June 18, 2013
+*  Last updated: July 2, 2013
 *
 *  You may use this code as you wish, provided you give credit where it's due.
 *
@@ -33,11 +33,12 @@
 #define MASK_D0_S 0x08
 #define MASK_D1_S 0x10
 
-#define BYTE_MSG_TYPE 0          // MSG_TYPE is the first byte.
-  #define MSG_TYPE_CHANGE_ADDR 1 // Change the UART address.
-  #define MSG_TYPE_SENSOR_TYPE 2 // Change/set the sensor type.
-  #define MSG_TYPE_VALUES      3 // Set the motor speed and direction, and return the sesnors and encoders.
-  #define MSG_TYPE_E_STOP      4 // Float motors immidately
+#define BYTE_MSG_TYPE               0 // MSG_TYPE is the first byte.
+  #define MSG_TYPE_CHANGE_ADDR      1 // Change the UART address.
+  #define MSG_TYPE_SENSOR_TYPE      2 // Change/set the sensor type.
+  #define MSG_TYPE_VALUES           3 // Set the motor speed and direction, and return the sesnors and encoders.
+  #define MSG_TYPE_E_STOP           4 // Float motors immidately
+  #define MSG_TYPE_TIMEOUT_SETTINGS 5 // Set the timeout
 
   // New UART address (MSG_TYPE_CHANGE_ADDR)
     #define BYTE_NEW_ADDRESS     1
@@ -45,6 +46,9 @@
   // Sensor setup (MSG_TYPE_SENSOR_TYPE)
     #define BYTE_SENSOR_1_TYPE   1
     #define BYTE_SENSOR_2_TYPE   2
+  
+  // Timeout setup (MSG_TYPE_TIMEOUT_SETTINGS)
+    #define BYTE_TIMEOUT 1
 
 #define TYPE_MOTOR_PWM                 0
 #define TYPE_MOTOR_SPEED               1
@@ -65,8 +69,8 @@
 #define TYPE_SENSOR_I2C                41
 #define TYPE_SENSOR_I2C_9V             42
 
-#define BIT_I2C_MID  0x01  // defined for each device
-#define BIT_I2C_SAME 0x02  // defined for each device
+#define BIT_I2C_MID  0x01  // Do one of those funny clock pulses between writing and reading. defined for each device.
+#define BIT_I2C_SAME 0x02  // The transmit data, and the number of bytes to read and write isn't going to change. defined for each device.
 
 #define INDEX_RED   0
 #define INDEX_GREEN 1
@@ -77,6 +81,7 @@ void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArr
 
 struct BrickPiStruct{
   unsigned char Address        [2];     // Communication addresses
+  unsigned long Timeout           ;     // Communication timeout (how long in ms since the last valid communication before floating the motors). 0 disables the timeout.
 
 /*
   Motors
@@ -126,6 +131,24 @@ int BrickPiChangeAddress(unsigned char OldAddr, unsigned char NewAddr){
   if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_CHANGE_ADDR))
     return -1;
 
+  return 0;
+}
+
+int BrickPiSetTimeout(){
+  unsigned char i = 0;
+  while(i < 2){
+    Array[BYTE_MSG_TYPE] = MSG_TYPE_TIMEOUT_SETTINGS;
+    Array[BYTE_TIMEOUT      ] = ( BrickPi.Timeout             & 0xFF);
+    Array[(BYTE_TIMEOUT + 1)] = ((BrickPi.Timeout / 256     ) & 0xFF);
+    Array[(BYTE_TIMEOUT + 2)] = ((BrickPi.Timeout / 65536   ) & 0xFF);
+    Array[(BYTE_TIMEOUT + 3)] = ((BrickPi.Timeout / 16777216) & 0xFF);
+    BrickPiTx(BrickPi.Address[i], 5, Array);
+    if(BrickPiRx(&BytesReceived, Array, 2500))
+      return -1;
+    if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_TIMEOUT_SETTINGS))
+      return -1;
+    i++;
+  }
   return 0;
 }
 
