@@ -1,7 +1,9 @@
 ********************************************************
 BrickPi C Code
 
-In this repository we've placed a C library for BrickPi
+In this repository is a C library and examples for using the BrickPi.
+
+More information on using C on the BrickPi can be found here:  http://www.dexterindustries.com/BrickPi/program-it/c/
 
 BrickPi is a Raspberry Pi Board that connects LEGO MINDSTORMS motors and sensors to the Raspberry Pi.
 
