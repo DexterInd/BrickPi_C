@@ -1,4 +1,4 @@
-*****************************************************************************************************************
+********************************************************
 BrickPi C Code
 
 In this repository we've placed a C library for BrickPi
@@ -9,4 +9,4 @@ BrickPi.h is the most important file here; it is the key to everything else.  Ex
 
 More information on hardware, firmware, and software can be found here:  http://www.dexterindustries.com/BrickPi
 
-*****************************************************************************************************************
+********************************************************
