@@ -2,8 +2,11 @@
 *  Matthew Richardson
 *  matthewrichardson37<at>gmail.com
 *  http://mattallen37.wordpress.com/
+*
+*  Updated by John Cole, Dexter Industries.   
+*
 *  Initial date: June 4, 2013
-*  Last updated: July 2, 2013
+*  Last updated: Oct 7, 2013
 *
 *  You may use this code as you wish, provided you give credit where it's due.
 *
@@ -13,7 +16,7 @@
 #ifndef __BrickPi_h_
 #define __BrickPi_h_
 
-#define DEBUG
+// #define DEBUG
 
 #include <wiringPi.h>
 
