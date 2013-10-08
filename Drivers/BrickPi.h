@@ -8,9 +8,28 @@
 *  Initial date: June 4, 2013
 *  Last updated: Oct 7, 2013
 *
-*  You may use this code as you wish, provided you give credit where it's due.
+* These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
+* (http://creativecommons.org/licenses/by-sa/3.0/)
 *
 *  This is a library of functions for the RPi to communicate with the BrickPi.
+*/
+/*
+##################################################################################################################
+* Debugging:
+* - NOTE THAT DEBUGGING ERROR MESSAGES ARE TURNED OFF BY DEFAULT.  To debug, just take the comment out of Line 38.
+* 
+* If you #define DEBUG in the program, the BrickPi.h drivers will print debug messages to the terminal. One common message is
+* "BrickPiRx error: -2", in function BrickPiUpdateValues(). This is caused by an error in the communication with one of the
+* microcontrollers on the BrickPi. When this happens, the drivers automatically re-try the communication several times before the
+* function gives up and returns -1 (unsuccessful) to the user-program.
+
+* Function BrickPiUpdateValues() will either return 0 (success), or -1 (error that could not automatically be resolved, even after
+* re-trying several times). We have rarely had BrickPiUpdateValues() retry more than once before the communication was successful.
+* A known cause for "BrickPiRx error: -2" is the RPi splitting the UART message. Sometimes the RPi will send e.g. 3 bytes, wait a
+* while, and then send 4 more, when it should have just sent 7 at once. During the pause between the packs of bytes, the BrickPi
+* microcontrollers will think the transmission is complete, realize the message doesn't make sense, throw it away, and not return
+* a message to the RPi. The RPi will then fail to receive a message in the specified amount of time, timeout, and then retry the
+* communication.
 */
 
 #ifndef __BrickPi_h_
