@@ -2,11 +2,17 @@
 *	Tetrix-DcMotorServoTest
 *	Code for using the Tetrix DC and Servo Controllers with the BrickPi
 *
+*	Dexter Industries
+*	www.dexterindustries.com
+*
+*	Based on test code provided by:
+
 *	William Gardner
 *	wgardnerg<at>gmail.com
 *	http://cheer4ftc.blogspot.com
 *
-*	Based on test code provided by
+*	and
+*
 *	Matthew Richardson
 *	matthewrichardson37<at>gmail.com
 *	http://mattallen37.wordpress.com/
