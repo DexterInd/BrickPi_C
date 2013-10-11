@@ -6,6 +6,13 @@
 *  You may use this code as you wish, provided you give credit where it's due.
 *  
 *  This is a program for testing the RPi BrickPi drivers and I2C communication on the BrickPi with a dCompass on HMC5883L 
+*
+# These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
+# (http://creativecommons.org/licenses/by-sa/3.0/)
+#
+# http://www.dexterindustries.com/
+# This code is for testing the BrickPi with the Compass from Dexter Industries
+# Product webpage: http://www.dexterindustries.com/dCompass.html
 */
 
 #include <stdio.h>

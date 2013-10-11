@@ -16,6 +16,14 @@
 *	Matthew Richardson
 *	matthewrichardson37<at>gmail.com
 *	http://mattallen37.wordpress.com/
+
+# These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
+# (http://creativecommons.org/licenses/by-sa/3.0/)
+#
+# http://www.dexterindustries.com/
+# This code is for testing the BrickPi with the Compass from Dexter Industries
+# Product webpage: http://www.dexterindustries.com/dCompass.html
+
 */
 
 #define DEBUG
