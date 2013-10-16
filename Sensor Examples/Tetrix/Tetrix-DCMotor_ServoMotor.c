@@ -21,12 +21,8 @@
 # (http://creativecommons.org/licenses/by-sa/3.0/)
 #
 # http://www.dexterindustries.com/
-<<<<<<< HEAD:Sensor Examples/Tetrix/Tetrix-DcMotorTest.c
-# This code is for testing the BrickPi with the Compass from Dexter Industries
-# Product webpage: http://www.dexterindustries.com/dCompass.html
-=======
-# This code is for testing the BrickPi with the DC Motor controller for Tetrix
->>>>>>> 532380638b67a12a3e3a2fb4c59a9c782847a4dd:Sensor Examples/Tetrix/Tetrix-DcMotorTest.c
+# This code is for testing the BrickPi with the DC Motor controller and Servo Motor Controller for Tetrix
+
 
 */
 
@@ -69,12 +65,14 @@ int main() {
 		return 0;
 	
 	// see TetrixControllers.h for usage of initTetrixControllerSettings
-	initTetrixControllerSettings(TETRIX_SENSOR_PORT, 1, 0x0);
+	initTetrixControllerSettings(TETRIX_SENSOR_PORT, 2, 0x02);
 	struct TetrixDCMotor mLeftDrive;
 	initTetrixDCMotor(&mLeftDrive, TETRIX_SENSOR_PORT, 0, 1);
 	struct TetrixDCMotor mRightDrive;
 	initTetrixDCMotor(&mRightDrive, TETRIX_SENSOR_PORT, 0, 2);
-
+	struct TetrixServo sClaw;
+	initTetrixServo(&sClaw, TETRIX_SENSOR_PORT, 1, 1);
+	
 	if(BrickPiSetupSensors())																																									// Make the changes take effect
 		return 0;
 
@@ -92,7 +90,8 @@ int main() {
 				
 			setTetrixDCMotorSpeed(mLeftDrive, i);
 			setTetrixDCMotorSpeed(mRightDrive, i);
-						
+			setTetrixServoSetting(sClaw, i+125);
+			
 			i += d;
 			if(i > 120){
 				d = -1;
