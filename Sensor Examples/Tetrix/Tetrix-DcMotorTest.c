@@ -1,9 +1,9 @@
 /*
-*	Tetrix-DcMotorServoTest
+*	Tetrix-DcMotorServoTest 
 *	Code for using the Tetrix DC and Servo Controllers with the BrickPi
 *
 *	Dexter Industries
-*	www.dexterindustries.com
+*	www.dexterindustries.com 
 *
 *	Based on test code provided by:
 
@@ -21,8 +21,7 @@
 # (http://creativecommons.org/licenses/by-sa/3.0/)
 #
 # http://www.dexterindustries.com/
-# This code is for testing the BrickPi with the Compass from Dexter Industries
-# Product webpage: http://www.dexterindustries.com/dCompass.html
+# This code is for testing the BrickPi with the DC Motor controller for Tetrix
 
 */
 
@@ -46,7 +45,7 @@
 
 int result;
 
-#define TETRIX_SENSOR_PORT									 PORT_1					 // BrickPi sensor port 1
+#define TETRIX_SENSOR_PORT PORT_1 // BrickPi sensor port 1
 
 int main() {
 	printf("started");
@@ -55,7 +54,7 @@ int main() {
 	BrickPi.Address[0] = 1;
 	BrickPi.Address[1] = 2;
 	
-	BrickPi.Timeout = 100;											 // Communication timeout (how long in ms since the last valid communication before floating the motors). 0 disables the timeout.
+	BrickPi.Timeout = 100; // Communication timeout (how long in ms since the last valid communication before floating the motors). 0 disables the timeout.
 
 	result = BrickPiSetup();
 	#ifdef DEBUG
@@ -63,8 +62,9 @@ int main() {
 	#endif
 	if(result)
 		return 0;
-
-	initTetrixControllerSettings(TETRIX_SENSOR_PORT, 2, 0x02);
+	
+	// see TetrixControllers.h for usage of initTetrixControllerSettings
+	initTetrixControllerSettings(TETRIX_SENSOR_PORT, 1, 0x0);
 	struct TetrixDCMotor mLeftDrive;
 	initTetrixDCMotor(&mLeftDrive, TETRIX_SENSOR_PORT, 0, 1);
 	struct TetrixDCMotor mRightDrive;
