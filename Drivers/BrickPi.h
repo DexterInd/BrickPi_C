@@ -139,6 +139,116 @@ struct BrickPiStruct{
 
 struct BrickPiStruct BrickPi;
 
+//Store the button's of the MINDSENSORS PSP Controller
+struct button
+{
+	unsigned char   l1;
+	unsigned char   l2;
+	unsigned char   r1;
+	unsigned char   r2;
+	unsigned char   a;
+	unsigned char   b;
+	unsigned char   c;
+	unsigned char   d;
+	unsigned char   tri;
+	unsigned char   sqr;
+	unsigned char   cir;
+	unsigned char   cro;
+	unsigned char   ljb;  // joystick button state
+	unsigned char   rjb;  // joystick button state
+
+	int   ljx;   // analog value of joystick scaled from -127 to 127
+	int   ljy;   // analog value of joystick scaled from -127 to 127
+	int   rjx;   // analog value of joystick scaled from -127 to 127
+	int   rjy;   // analog value of joystick scaled from -127 to 127
+};
+//Initialize all the buttons to 0 of the MINDSENSORS PSP controller
+struct button init_psp (struct button b)
+{
+	b.l1 = 0;
+	b.l2 = 0;
+	b.r1 = 0;
+	b.r2 = 0;
+	b.a = 0;
+	b.b = 0;
+	b.c = 0;
+	b.d = 0;
+	b.tri = 0;
+	b.sqr = 0;
+	b.cir = 0;
+	b.cro = 0;
+	b.ljb = 0;
+	b.rjb = 0;
+	b.ljx = 0;
+	b.ljy = 0;
+	b.rjx = 0;
+	b.rjy = 0;
+	return b;
+}
+
+//Update all the buttons of the MINDSENSORS PSP controller
+//For all buttons:
+//	0:	Unpressed
+//	1:	Pressed
+//	
+//	Left and right joystick: -127 to 127 
+struct button upd(struct button b,int port)
+{
+	//Left and right joystick button press
+	b.ljb = ~(BrickPi.SensorI2CIn[port][0][0] >> 1) & 0x01;
+	b.rjb = ~(BrickPi.SensorI2CIn[port][0][0] >> 2) & 0x01;
+	
+	//For buttons a,b,c,d
+	b.d = ~(BrickPi.SensorI2CIn[port][0][0] >> 4) & 0x01;
+	b.c = ~(BrickPi.SensorI2CIn[port][0][0] >> 5) & 0x01;
+	b.b = ~(BrickPi.SensorI2CIn[port][0][0] >> 6) & 0x01;
+	b.a = ~(BrickPi.SensorI2CIn[port][0][0] >> 7) & 0x01;
+ 
+	//For buttons l1,l2,r1,r2
+	b.l2    = ~(BrickPi.SensorI2CIn[port][0][1] ) & 0x01;
+	b.r2    = ~(BrickPi.SensorI2CIn[port][0][1] >> 1) & 0x01;
+	b.l1    = ~(BrickPi.SensorI2CIn[port][0][1] >> 2) & 0x01;
+	b.r1    = ~(BrickPi.SensorI2CIn[port][0][1] >> 3) & 0x01;
+	
+	//For buttons square,triangle,cross,circle
+	b.tri    = ~(BrickPi.SensorI2CIn[port][0][1] >> 4) & 0x01;
+	b.cir    = ~(BrickPi.SensorI2CIn[port][0][1] >> 5) & 0x01;
+	b.cro = ~(BrickPi.SensorI2CIn[port][0][1] >> 6) & 0x01;
+	b.sqr    = ~(BrickPi.SensorI2CIn[port][0][1] >> 7) & 0x01;
+   
+   //Left joystick x and y , -127 to 127
+	b.ljx = -1*((BrickPi.SensorI2CIn[port][0][5]&0xff) - 128);
+	b.ljy = (BrickPi.SensorI2CIn[port][0][4]&0xff) - 128;
+	
+	//Right joystick x and y , -127 to 127
+	b.rjx = -1*((BrickPi.SensorI2CIn[port][0][3]&0xff) - 128);
+	b.rjy = (BrickPi.SensorI2CIn[port][0][2]&0xff) - 128;
+	return b;
+}
+//Show button values of the MINDSENSORS PSP controller
+void show_val(struct button b)
+{
+	printf("ljb rjb d c b a l2 r2 l1 r1 tri cir cro sqr\tljx\tljy\trjx\trjy\n");
+	printf("%d ",b.ljb);
+	printf("  %d ",b.rjb);
+	printf("  %d ",b.d);
+	printf("%d ",b.c);
+	printf("%d ",b.b);
+	printf("%d ",b.a);
+	         
+	printf("%d ",b.l2);
+	printf(" %d ",b.r2);
+	printf(" %d ",b.l1);
+	printf(" %d ",b.r1);
+	printf(" %d ",b.tri);
+	printf("  %d ",b.cir);
+	printf("  %d ",b.cro);
+	printf("  %d ",b.sqr);
+	printf("\t%d ",b.ljx);
+	printf("\t%d ",b.rjx);
+	printf("\t%d ",b.ljy);
+	printf("\t%d\n\n",b.rjy);
+}
 unsigned char Array[256];
 unsigned char BytesReceived;
 
