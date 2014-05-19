@@ -5,6 +5,7 @@
 *  Based on Matthew Richardson's example on testing BrickPi drivers and Xander Soldaat's Example on NXT for RobotC
 *  You may use this code as you wish, provided you give credit where it's due.
 *  
+*  Extended functions based on code by devenknight from the BrickPi Forums 
 *  This is a program for testing the RPi BrickPi drivers and I2C communication on the BrickPi with a dGPS
 */
 
@@ -33,7 +34,7 @@
 int result;
 
 
-long UTC, lat, lon;
+long UTC, lat, lon, alttd, hdop, vwsat;
 unsigned short head,velo,status;
 
 #define I2C_PORT  PORT_1                             // I2C port for the dGPS
@@ -48,6 +49,15 @@ unsigned short head,velo,status;
 #define DGPS_CMD_LONG   0x04      /*!< Fetch Longitude */
 #define DGPS_CMD_VELO   0x06      /*!< Fetch velocity in cm/s */
 #define DGPS_CMD_HEAD   0x07      /*!< Fetch heading in degrees */
+#define DGPS_CMD_DIST   0x08      // Fetch distance to destination
+#define DGPS_CMD_ANGD   0x09      // Fetch angle to destination 
+#define DGPS_CMD_ANGR   0x0A      // Fetch angle travelled since last request
+#define DGPS_CMD_SLAT   0x0B      // Set latitude of destination 
+#define DGPS_CMD_SLONG  0x0C      // Set longitude of destination
+#define DGPS_CMD_XFIRM  0x0D	  // Extended firmware
+#define DGPS_CMD_ALTTD  0x0E	  // Altitude
+#define DGPS_CMD_HDOP   0x0F	  // HDOP
+#define DGPS_CMD_VWSAT  0x10	  // Satellites in View
 
 int main() {
   ClearTick();
@@ -72,7 +82,13 @@ int main() {
   if(BrickPiSetupSensors())
     return 0;
 	
-
+	BrickPi.SensorSettings [I2C_PORT][I2C_DEVICE_DGPS] = 1;
+	BrickPi.SensorI2COut   [I2C_PORT][I2C_DEVICE_DGPS][0] = DGPS_CMD_XFIRM;
+	BrickPi.SensorI2CWrite [I2C_PORT][I2C_DEVICE_DGPS] = 1; // Number of bytes to write
+	BrickPi.SensorI2CRead  [I2C_PORT][I2C_DEVICE_DGPS] = 3; // Number of bytes to read   
+	BrickPiSetupSensors();     
+	result = BrickPiUpdateValues();
+	printf("Extended firmware: %d\n", result); 
   
   BrickPi.SensorSettings [I2C_PORT][I2C_DEVICE_DGPS]    = BIT_I2C_MID; // the dGPS device requires a clock change between reading and writing
   BrickPi.SensorI2CWrite [I2C_PORT][I2C_DEVICE_DGPS]    = 1;	//number of bytes to write
@@ -147,7 +163,41 @@ int main() {
 		  velo = ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][0]<<16) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][1]<<8) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][2]);        
         }
       }
-	  printf("Status:%d UTC:%ld Latitude:%ld Longitude:%ld Heading:%d Velocity:%d\n",status,UTC,lat,lon,head,velo);
+	  
+	  //read altitude
+			BrickPi.SensorI2CRead  [I2C_PORT][I2C_DEVICE_DGPS] = 4;
+			BrickPi.SensorI2COut   [I2C_PORT][I2C_DEVICE_DGPS][0] = DGPS_CMD_ALTTD;	//byte to write
+			BrickPiSetupSensors();   
+			result = BrickPiUpdateValues(); //write and read
+			if(!result){
+				if(BrickPi.Sensor[I2C_PORT] & (0x01 << I2C_DEVICE_DGPS)){
+				alttd = ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][0]<<24) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][1]<<16) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][2]<<8) + (long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][3];     
+				}
+			}	  
+
+			//read hdop
+			BrickPi.SensorI2CRead  [I2C_PORT][I2C_DEVICE_DGPS] = 4;
+			BrickPi.SensorI2COut   [I2C_PORT][I2C_DEVICE_DGPS][0] = DGPS_CMD_HDOP; //byte to write
+			BrickPiSetupSensors();   
+			result = BrickPiUpdateValues(); //write and read
+			if(!result){
+				if(BrickPi.Sensor[I2C_PORT] & (0x01 << I2C_DEVICE_DGPS)){
+				hdop = ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][0]<<24) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][1]<<16) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][2]<<8) + (long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][3];       
+				}
+			}		  
+
+			//read vwsat
+			BrickPi.SensorI2CRead  [I2C_PORT][I2C_DEVICE_DGPS] = 4;
+			BrickPi.SensorI2COut   [I2C_PORT][I2C_DEVICE_DGPS][0] = DGPS_CMD_VWSAT;	//byte to write
+			BrickPiSetupSensors();   
+			result = BrickPiUpdateValues(); //write and read
+			if(!result){
+				if(BrickPi.Sensor[I2C_PORT] & (0x01 << I2C_DEVICE_DGPS)){
+				vwsat = ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][0]<<24) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][1]<<16) + ((long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][2]<<8) + (long)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DGPS][3];       
+				}
+			}
+			
+	  printf("Status:%d UTC:%ld Latitude:%ld Longitude:%ld Heading:%d Velocity:%d Altitude:%ld HDOP:%ld Satellites in View:%ld\n",status,UTC,lat,lon,head,velo,alttd,hdop,vwsat);
       usleep(500000);
     }
   }
