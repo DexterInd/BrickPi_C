@@ -1,7 +1,8 @@
 /*
 *  Jaikrishna
 *  t.s.jaikrishna<at>gmail.com
-*  Initial date: June 21, 2013
+*  Initial date:  	June 21, 2013
+*  Updated : 		May 30, 2014
 *  Based on Matthew Richardson's example on testing BrickPi drivers and Xander Soldaat's Example on NXT for RobotC
 *  You may use this code as you wish, provided you give credit where it's due.
 *  
@@ -132,18 +133,15 @@ End_loop */
       if(!result){
 
         if(BrickPi.Sensor[I2C_PORT] & (0x01 << I2C_DEVICE_DCOM)){
-          // X = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1]);
-          // Z = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][2]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][3]);
-          // Y = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5]);
 		  
-		  X = BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1];
-		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0] < 0){
+		  X = (int)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1];
+		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0] > 0){
 			X = -1*(255-X);
 		  }
 
-		  Y = BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5];
-		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4] < 0){
-			Y = -1*(255-X);
+		  Y = (int)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5];
+		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4] > 0){
+			Y = -1*(255-Y);
 		  }
           
 		  angle = atan2(X,Y);
