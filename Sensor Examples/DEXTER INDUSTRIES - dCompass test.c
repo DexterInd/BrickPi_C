@@ -132,15 +132,25 @@ End_loop */
       if(!result){
 
         if(BrickPi.Sensor[I2C_PORT] & (0x01 << I2C_DEVICE_DCOM)){
-          X = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1]);
-          Z = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][2]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][3]);
-          Y = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5]);
+          // X = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1]);
+          // Z = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][2]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][3]);
+          // Y = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5]);
+		  
+		  X = BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1];
+		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0] < 0){
+			X = -1*(255-X);
+		  }
+
+		  Y = BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5];
+		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4] < 0){
+			Y = -1*(255-X);
+		  }
           
 		  angle = atan2(X,Y);
 		  if(angle<0) angle += 2*PI;
 		  angle *= 180/PI;
          
-          printf("X: %d  Y: %d  Z: %d  H:%f \n", X, Y, Z,angle);
+          printf("X: %d  Y: %d  H:%f \n", X, Y, angle);
         
         }
       }
