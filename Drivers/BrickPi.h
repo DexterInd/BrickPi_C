@@ -2,47 +2,79 @@
 *  Matthew Richardson
 *  matthewrichardson37<at>gmail.com
 *  http://mattallen37.wordpress.com/
-*
-*  Updated by John Cole, Dexter Industries.   
-*
 *  Initial date: June 4, 2013
-*  Last updated: Oct 7, 2013
+*  Last updated: Dec  11, 2013
 *
-* These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
-* (http://creativecommons.org/licenses/by-sa/3.0/)
+*  You may use this code as you wish, provided you give credit where it's due.
 *
 *  This is a library of functions for the RPi to communicate with the BrickPi.
-*/
-/*
-##################################################################################################################
-* Debugging:
-* - NOTE THAT DEBUGGING ERROR MESSAGES ARE TURNED OFF BY DEFAULT.  To debug, just take the comment out of Line 38.
-* 
-* If you #define DEBUG in the program, the BrickPi.h drivers will print debug messages to the terminal. One common message is
-* "BrickPiRx error: -2", in function BrickPiUpdateValues(). This is caused by an error in the communication with one of the
-* microcontrollers on the BrickPi. When this happens, the drivers automatically re-try the communication several times before the
-* function gives up and returns -1 (unsuccessful) to the user-program.
-
-* Function BrickPiUpdateValues() will either return 0 (success), or -1 (error that could not automatically be resolved, even after
-* re-trying several times). We have rarely had BrickPiUpdateValues() retry more than once before the communication was successful.
-* A known cause for "BrickPiRx error: -2" is the RPi splitting the UART message. Sometimes the RPi will send e.g. 3 bytes, wait a
-* while, and then send 4 more, when it should have just sent 7 at once. During the pause between the packs of bytes, the BrickPi
-* microcontrollers will think the transmission is complete, realize the message doesn't make sense, throw it away, and not return
-* a message to the RPi. The RPi will then fail to receive a message in the specified amount of time, timeout, and then retry the
-* communication.
 */
 
 #ifndef __BrickPi_h_
 #define __BrickPi_h_
 
-// #define DEBUG
+#ifndef NUMBER_OF_BRICKPIS
+  #define NUMBER_OF_BRICKPIS 1
+#endif
 
-#include <wiringPi.h>
+#define HOST_RPI 1
+#define HOST_BBB 2
+
+#ifndef COMPILE_HOST
+  #define COMPILE_HOST 0
+#endif
+
+//#define DEBUG
+
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <dirent.h>
+#include <string.h> 
+#include <stdio.h>  
+#include <linux/i2c-dev.h>  
+
+#if COMPILE_HOST == HOST_RPI
+  #include <wiringPi.h>
+#endif
+
+#ifndef delay
+  #define delay(x) usleep(x * 1000)
+#endif
+#ifndef Max
+  #define Max(x, y) (x>y?x:y)                 // Return the highest value
+#endif
+#ifndef Min
+  #define Min(x, y) (x<y?x:y)                 // Return the lowest value
+#endif
+#ifndef Clip
+  #define Clip(v, x, y) (Min(Max(v, x), y))   // Return the value, clipped to x <= v <= y
+#endif
+#ifndef Dead
+  #define Dead(v, x, y) ((v<=x)?v:(v>=y?v:0)) // Return the value, with a dead spot from x to y
+#endif
+#ifndef Abs
+  #define Abs(v) (v<0?(-v):v)                 // Return the absolute value - untested
+#endif
+
+#define LED_1   0
+#define LED_2   1
+#define LED_ON  1023
+#define LED_OFF 0
 
 #define PORT_A 0
 #define PORT_B 1
 #define PORT_C 2
 #define PORT_D 3
+
+#define TYPE_MOTOR_FLOAT     0    // Float motor
+#define TYPE_MOTOR_SPEED     1    // Motor speed control
+#define TYPE_MOTOR_POSITION  2    // Motor position control
+  #define MOTOR_KP_DEFAULT   2.0  // Motor position control - Proportional Konstant
+  #define MOTOR_KD_DEFAULT   5.0  // Motor position control - Derivative Konstant
+  #define MOTOR_DEAD_DEFAULT 10   // A dead-spot in the active motor control. For speeds in the range of -MOTOR_DEAD_DEFAULT to MOTOR_DEAD_DEFAULT, the motor won't run. Outside that range, the motor value is then increased (from 0) by MOTOR_DEAD_DEFAULT.
 
 #define PORT_1 0
 #define PORT_2 1
@@ -61,6 +93,7 @@
   #define MSG_TYPE_VALUES           3 // Set the motor speed and direction, and return the sesnors and encoders.
   #define MSG_TYPE_E_STOP           4 // Float motors immidately
   #define MSG_TYPE_TIMEOUT_SETTINGS 5 // Set the timeout
+  #define MSG_TYPE_BAUD_SETTINGS    6 // Set the baud rate
 
   // New UART address (MSG_TYPE_CHANGE_ADDR)
     #define BYTE_NEW_ADDRESS     1
@@ -71,10 +104,6 @@
   
   // Timeout setup (MSG_TYPE_TIMEOUT_SETTINGS)
     #define BYTE_TIMEOUT 1
-
-#define TYPE_MOTOR_PWM                 0
-#define TYPE_MOTOR_SPEED               1
-#define TYPE_MOTOR_POSITION            2
 
 #define TYPE_SENSOR_RAW                0 // - 31
 #define TYPE_SENSOR_LIGHT_OFF          0
@@ -99,183 +128,133 @@
 #define INDEX_BLUE  2
 #define INDEX_BLANK 3
 
+#define BAUD_DEFAULT 9600
+
+int SW_HOST = 0;
+unsigned long BAUD_IDEAL = BAUD_DEFAULT;   // This will be changed, specific to the host.
+
+int RPiRev = 0; // If the host is a RPi, this will be set to the HW revision (1 or 2).
+
+int BrickPiSetLed(unsigned char led, int value);
+void BrickPiUpdateLEDs(void);
 void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArray[]);
 
+// BrickPi data struct
 struct BrickPiStruct{
-  unsigned char Address        [2];     // Communication addresses
-  unsigned long Timeout           ;     // Communication timeout (how long in ms since the last valid communication before floating the motors). 0 disables the timeout.
+/*
+  LEDs
+*/
+  int LED                              [2];        // The state of the two LEDs
+
+  unsigned char Address                [NUMBER_OF_BRICKPIS * 2];        // Communication addresses
+  unsigned long Timeout                                        ;        // Communication timeout (how long in ms since the last valid communication before floating the motors). 0 disables the timeout.
 
 /*
   Motors
 */
-  int           MotorSpeed     [4];     // Motor speeds, from -255 to 255
-  unsigned char MotorEnable    [4];     // Motor enable/disable
+  int           MotorSpeed             [NUMBER_OF_BRICKPIS * 4];        // Motor speeds, from -255 to 255
+  unsigned char MotorEnable            [NUMBER_OF_BRICKPIS * 4];        // Motor mode. Float, Speed, Position.
+  long          MotorTarget            [NUMBER_OF_BRICKPIS * 4];        // Motor target position. This is implemented on the RPi, not in the BrickPi FW.
+  long          MotorTargetLastError   [NUMBER_OF_BRICKPIS * 4];        // Value used internally for motor position regulation.
+  float         MotorTargetKP          [NUMBER_OF_BRICKPIS * 4];        // Percent Konstant - used for motor position regulation.
+  float         MotorTargetKD          [NUMBER_OF_BRICKPIS * 4];        // Derivative Konstant - used for motor position regulation.
+  unsigned char MotorDead              [NUMBER_OF_BRICKPIS * 4];        // How wide of a gap to leave between 0 and the value speed value used for running to a target position.
 
 /*
   Encoders
 */
-  long          EncoderOffset  [4];     // Encoder offsets (not yet implemented)
-  long          Encoder        [4];     // Encoder values
+  long          EncoderOffset          [NUMBER_OF_BRICKPIS * 4];        // Encoder offsets
+  long          Encoder                [NUMBER_OF_BRICKPIS * 4];        // Encoder values
 
 /*
   Sensors
 */
-  long          Sensor         [4];     // Primary sensor values
-  long          SensorArray    [4][4];  // For more sensor values for the sensor (e.g. for color sensor FULL mode).
-  unsigned char SensorType     [4];     // Sensor types
-  unsigned char SensorSettings [4][8];  // Sensor settings, used for specifying I2C settings.
+  long          Sensor                 [NUMBER_OF_BRICKPIS * 4];        // Primary sensor values
+  long          SensorArray            [NUMBER_OF_BRICKPIS * 4][4];     // For more sensor values for the sensor (e.g. for color sensor FULL mode).
+  unsigned char SensorType             [NUMBER_OF_BRICKPIS * 4];        // Sensor types
+  unsigned char SensorSettings         [NUMBER_OF_BRICKPIS * 4][8];     // Sensor settings, used for specifying I2C settings.
 
 /*
   I2C
 */
-  unsigned char SensorI2CDevices[4];        // How many I2C devices are on each bus (1 - 8).
-  unsigned char SensorI2CSpeed  [4];        // The I2C speed.
-  unsigned char SensorI2CAddr   [4][8];     // The I2C address of each device on each bus.  
-  unsigned char SensorI2CWrite  [4][8];     // How many bytes to write
-  unsigned char SensorI2CRead   [4][8];     // How many bytes to read
-  unsigned char SensorI2COut    [4][8][16]; // The I2C bytes to write
-  unsigned char SensorI2CIn     [4][8][16]; // The I2C input buffers
+  unsigned char SensorI2CDevices       [NUMBER_OF_BRICKPIS * 4];        // How many I2C devices are on each bus (1 - 8).
+  unsigned char SensorI2CSpeed         [NUMBER_OF_BRICKPIS * 4];        // The I2C speed.
+  unsigned char SensorI2CAddr          [NUMBER_OF_BRICKPIS * 4][8];     // The I2C address of each device on each bus.  
+  unsigned char SensorI2CWrite         [NUMBER_OF_BRICKPIS * 4][8];     // How many bytes to write
+  unsigned char SensorI2CRead          [NUMBER_OF_BRICKPIS * 4][8];     // How many bytes to read
+  unsigned char SensorI2COut           [NUMBER_OF_BRICKPIS * 4][8][16]; // The I2C bytes to write
+  unsigned char SensorI2CIn            [NUMBER_OF_BRICKPIS * 4][8][16]; // The I2C input buffers
 };
 
 struct BrickPiStruct BrickPi;
 
-//Store the button's of the MINDSENSORS PSP Controller
-struct button
-{
-	unsigned char   l1;
-	unsigned char   l2;
-	unsigned char   r1;
-	unsigned char   r2;
-	unsigned char   a;
-	unsigned char   b;
-	unsigned char   c;
-	unsigned char   d;
-	unsigned char   tri;
-	unsigned char   sqr;
-	unsigned char   cir;
-	unsigned char   cro;
-	unsigned char   ljb;  // joystick button state
-	unsigned char   rjb;  // joystick button state
-
-	int   ljx;   // analog value of joystick scaled from -127 to 127
-	int   ljy;   // analog value of joystick scaled from -127 to 127
-	int   rjx;   // analog value of joystick scaled from -127 to 127
-	int   rjy;   // analog value of joystick scaled from -127 to 127
-};
-//Initialize all the buttons to 0 of the MINDSENSORS PSP controller
-struct button init_psp (struct button b)
-{
-	b.l1 = 0;
-	b.l2 = 0;
-	b.r1 = 0;
-	b.r2 = 0;
-	b.a = 0;
-	b.b = 0;
-	b.c = 0;
-	b.d = 0;
-	b.tri = 0;
-	b.sqr = 0;
-	b.cir = 0;
-	b.cro = 0;
-	b.ljb = 0;
-	b.rjb = 0;
-	b.ljx = 0;
-	b.ljy = 0;
-	b.rjx = 0;
-	b.rjy = 0;
-	return b;
-}
-
-//Update all the buttons of the MINDSENSORS PSP controller
-//For all buttons:
-//	0:	Unpressed
-//	1:	Pressed
-//	
-//	Left and right joystick: -127 to 127 
-struct button upd(struct button b,int port)
-{
-	//Left and right joystick button press
-	b.ljb = ~(BrickPi.SensorI2CIn[port][0][0] >> 1) & 0x01;
-	b.rjb = ~(BrickPi.SensorI2CIn[port][0][0] >> 2) & 0x01;
-	
-	//For buttons a,b,c,d
-	b.d = ~(BrickPi.SensorI2CIn[port][0][0] >> 4) & 0x01;
-	b.c = ~(BrickPi.SensorI2CIn[port][0][0] >> 5) & 0x01;
-	b.b = ~(BrickPi.SensorI2CIn[port][0][0] >> 6) & 0x01;
-	b.a = ~(BrickPi.SensorI2CIn[port][0][0] >> 7) & 0x01;
- 
-	//For buttons l1,l2,r1,r2
-	b.l2    = ~(BrickPi.SensorI2CIn[port][0][1] ) & 0x01;
-	b.r2    = ~(BrickPi.SensorI2CIn[port][0][1] >> 1) & 0x01;
-	b.l1    = ~(BrickPi.SensorI2CIn[port][0][1] >> 2) & 0x01;
-	b.r1    = ~(BrickPi.SensorI2CIn[port][0][1] >> 3) & 0x01;
-	
-	//For buttons square,triangle,cross,circle
-	b.tri    = ~(BrickPi.SensorI2CIn[port][0][1] >> 4) & 0x01;
-	b.cir    = ~(BrickPi.SensorI2CIn[port][0][1] >> 5) & 0x01;
-	b.cro = ~(BrickPi.SensorI2CIn[port][0][1] >> 6) & 0x01;
-	b.sqr    = ~(BrickPi.SensorI2CIn[port][0][1] >> 7) & 0x01;
-   
-   //Left joystick x and y , -127 to 127
-	b.ljx = -1*((BrickPi.SensorI2CIn[port][0][5]&0xff) - 128);
-	b.ljy = (BrickPi.SensorI2CIn[port][0][4]&0xff) - 128;
-	
-	//Right joystick x and y , -127 to 127
-	b.rjx = -1*((BrickPi.SensorI2CIn[port][0][3]&0xff) - 128);
-	b.rjy = (BrickPi.SensorI2CIn[port][0][2]&0xff) - 128;
-	return b;
-}
-//Show button values of the MINDSENSORS PSP controller
-void show_val(struct button b)
-{
-	printf("ljb rjb d c b a l2 r2 l1 r1 tri cir cro sqr\tljx\tljy\trjx\trjy\n");
-	printf("%d ",b.ljb);
-	printf("  %d ",b.rjb);
-	printf("  %d ",b.d);
-	printf("%d ",b.c);
-	printf("%d ",b.b);
-	printf("%d ",b.a);
-	         
-	printf("%d ",b.l2);
-	printf(" %d ",b.r2);
-	printf(" %d ",b.l1);
-	printf(" %d ",b.r1);
-	printf(" %d ",b.tri);
-	printf("  %d ",b.cir);
-	printf("  %d ",b.cro);
-	printf("  %d ",b.sqr);
-	printf("\t%d ",b.ljx);
-	printf("\t%d ",b.rjx);
-	printf("\t%d ",b.ljy);
-	printf("\t%d\n\n",b.rjy);
-}
 unsigned char Array[256];
 unsigned char BytesReceived;
 
-int BrickPiChangeAddress(unsigned char OldAddr, unsigned char NewAddr){
+// Tell the BrickPi to float all motors immidately
+int BrickPiEmergencyStop(){
+/*
+  Try 3 times to send E Stop to each of the uCs.
+  If failed:
+    Broadcast E Stop 3 times.
+*/
+  
   unsigned char i = 0;
+  while(i < 3){
+    unsigned char ii = 0;
+    while(ii < (NUMBER_OF_BRICKPIS * 2)){
+      Array[BYTE_MSG_TYPE] = MSG_TYPE_E_STOP;
+      BrickPiTx(BrickPi.Address[ii], 1, Array);
+      if(BrickPiRx(&BytesReceived, Array, 5000)){
+        goto NEXT_TRY;
+      }
+      if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_E_STOP)){
+        goto NEXT_TRY;
+      }
+      if(ii == ((NUMBER_OF_BRICKPIS * 2) - 1)){
+        return 0;
+      }
+      ii++;
+    }
+NEXT_TRY:
+    i++;
+  }
+  
+  i = 0;
+  while(i < 3){
+    Array[BYTE_MSG_TYPE] = MSG_TYPE_E_STOP;
+    BrickPiTx(0, 1, Array);
+    usleep(5000);
+    i++;
+  }
+  return -1;
+}
+
+// Change the BrickPi address, for one of the uCs
+int BrickPiChangeAddress(unsigned char OldAddr, unsigned char NewAddr){
   Array[BYTE_MSG_TYPE] = MSG_TYPE_CHANGE_ADDR;
   Array[BYTE_NEW_ADDRESS] = NewAddr;
   BrickPiTx(OldAddr, 2, Array);
-    
+  
   if(BrickPiRx(&BytesReceived, Array, 5000))
     return -1;
   if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_CHANGE_ADDR))
     return -1;
-
+  
   return 0;
 }
 
+// Change the BrickPi timeout
 int BrickPiSetTimeout(){
   unsigned char i = 0;
-  while(i < 2){
+  while(i < (NUMBER_OF_BRICKPIS * 2)){
     Array[BYTE_MSG_TYPE] = MSG_TYPE_TIMEOUT_SETTINGS;
-    Array[BYTE_TIMEOUT      ] = ( BrickPi.Timeout             & 0xFF);
+    Array[ BYTE_TIMEOUT     ] = ( BrickPi.Timeout             & 0xFF);
     Array[(BYTE_TIMEOUT + 1)] = ((BrickPi.Timeout / 256     ) & 0xFF);
     Array[(BYTE_TIMEOUT + 2)] = ((BrickPi.Timeout / 65536   ) & 0xFF);
     Array[(BYTE_TIMEOUT + 3)] = ((BrickPi.Timeout / 16777216) & 0xFF);
     BrickPiTx(BrickPi.Address[i], 5, Array);
-    if(BrickPiRx(&BytesReceived, Array, 2500))
+    if(BrickPiRx(&BytesReceived, Array, 5000))
       return -1;
     if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_TIMEOUT_SETTINGS))
       return -1;
@@ -284,8 +263,40 @@ int BrickPiSetTimeout(){
   return 0;
 }
 
+// Tell the BrickPi to use a new baud rate
+int BrickPiSetBaud(unsigned long baud_old, unsigned long baud_new){
+  unsigned char result = 0;
+  int i = 0;
+  while(i < (NUMBER_OF_BRICKPIS * 2)){
+    Array[BYTE_MSG_TYPE] = MSG_TYPE_BAUD_SETTINGS;
+    Array[ BYTE_TIMEOUT     ] = ( baud_new             & 0xFF);
+    Array[(BYTE_TIMEOUT + 1)] = ((baud_new / 256     ) & 0xFF);
+    Array[(BYTE_TIMEOUT + 2)] = ((baud_new / 65536   ) & 0xFF);
+    
+    UART_Configure(baud_old);
+    BrickPiTx(BrickPi.Address[i], 4, Array);
+    UART_Configure(baud_new);
+    
+    if(BrickPiRx(&BytesReceived, Array, 5000))
+      result |= (0x01 << i);
+    if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_BAUD_SETTINGS))
+      result |= (0x01 << i);
+    
+    i++;
+  }
+  
+  if(result){                         // If it failed, then it could be the original BrickPi FW which only supports 500k Baud.
+    UART_Configure(baud_old);
+    if(BrickPiSetTimeout() == -1){    // Try setting the timeout, which will determine if communication is successful at the desired baud rate.
+      return result;                  // If setting the timeout also failed, return the error.
+    }
+  }                                   
+  return 0;                           // Else return 0 (no error).
+}
+
 unsigned int Bit_Offset = 0;
 
+// Add "bits" number of bits of "value" to "Array"
 void AddBits(unsigned char byte_offset, unsigned char bit_offset, unsigned char bits, unsigned long value){
   unsigned char i = 0;
   while(i < bits){
@@ -298,6 +309,7 @@ void AddBits(unsigned char byte_offset, unsigned char bit_offset, unsigned char 
   Bit_Offset += bits;
 }
 
+// Extract "bits" number of bits from "Array"
 unsigned long GetBits(unsigned char byte_offset, unsigned char bit_offset, unsigned char bits){
   unsigned long Result = 0;
   char i = bits;
@@ -310,6 +322,7 @@ unsigned long GetBits(unsigned char byte_offset, unsigned char bit_offset, unsig
   return Result;
 }
 
+// Determine how many bits are needed to store the value
 unsigned char BitsNeeded(unsigned long value){
   unsigned char i = 0;
   while(i < 32){
@@ -321,9 +334,10 @@ unsigned char BitsNeeded(unsigned long value){
   return 31;
 }
 
+// Configure sensors
 int BrickPiSetupSensors(){
   unsigned char i = 0;
-  while(i < 2){
+  while(i < (NUMBER_OF_BRICKPIS * 2)){
     int ii = 0;
     while(ii < 256){
       Array[ii] = 0;
@@ -368,7 +382,7 @@ int BrickPiSetupSensors(){
     }
     unsigned char UART_TX_BYTES = (((Bit_Offset + 7) / 8) + 3);
     BrickPiTx(BrickPi.Address[i], UART_TX_BYTES, Array);
-    if(BrickPiRx(&BytesReceived, Array, 500000))
+    if(BrickPiRx(&BytesReceived, Array, 1000000))
       return -1;
     if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_SENSOR_TYPE))
       return -1;
@@ -377,15 +391,19 @@ int BrickPiSetupSensors(){
   return 0;
 }
 
+
 unsigned char Retried = 0; // For re-trying a failed update.
 
+// Update the BrickPi, and get the latest values
 int BrickPiUpdateValues(){
+  BrickPiUpdateLEDs();
+  
   unsigned char i = 0;
   unsigned int ii = 0;
-  while(i < 2){
+  while(i < (NUMBER_OF_BRICKPIS * 2)){
     Retried = 0;    
-
-__RETRY_COMMUNICATION__:
+    
+    __RETRY_COMMUNICATION__:
     
     ii = 0;
     while(ii < 256){
@@ -404,16 +422,17 @@ __RETRY_COMMUNICATION__:
       unsigned char port = (i * 2) + ii;
       if(BrickPi.EncoderOffset[port]){
         long Temp_Value = BrickPi.EncoderOffset[port];
-        unsigned char Temp_ENC_DIR;
-        unsigned char Temp_BitsNeeded;
+        unsigned char Temp_ENC_DIR = 0;
+        unsigned char Temp_BitsNeeded = 0;
         
         AddBits(1, 0, 1, 1);
         if(Temp_Value < 0){
           Temp_ENC_DIR = 1;
           Temp_Value *= (-1);
-        }
-        Temp_BitsNeeded = (BitsNeeded(Temp_Value) + 1);
+        }        
+        Temp_BitsNeeded = BitsNeeded(Temp_Value);
         AddBits(1, 0, 5, Temp_BitsNeeded);
+        Temp_BitsNeeded++;
         Temp_Value *= 2;
         Temp_Value |= Temp_ENC_DIR;
         AddBits(1, 0, Temp_BitsNeeded, Temp_Value);
@@ -429,16 +448,40 @@ __RETRY_COMMUNICATION__:
     ii = 0;
     while(ii < 2){
       unsigned char port = (i * 2) + ii;
-      speed = BrickPi.MotorSpeed[port];
-      dir = 0;
-      if(speed < 0){
-        dir = 1;
-        speed *= (-1);
+      
+      if(BrickPi.MotorEnable[port] == TYPE_MOTOR_FLOAT){
+        AddBits(1, 0, 10, 0);
+      }else{
+        if(BrickPi.MotorEnable[port] == TYPE_MOTOR_SPEED){
+          speed = BrickPi.MotorSpeed[port];
+        }else if(BrickPi.MotorEnable[port] == TYPE_MOTOR_POSITION){
+          long error = BrickPi.MotorTarget[port] - BrickPi.Encoder[port];
+          float speed_f = (error * BrickPi.MotorTargetKP[port]) + ((error - BrickPi.MotorTargetLastError[port]) * BrickPi.MotorTargetKD[port]);
+          BrickPi.MotorTargetLastError[port] = error;
+          if(speed_f < BrickPi.MotorDead[port] && speed_f > -BrickPi.MotorDead[port]){
+            speed_f = 0;
+          }
+          if(speed_f > 0){
+            speed_f += BrickPi.MotorDead[port];
+          }else if(speed_f < 0){
+            speed_f -= BrickPi.MotorDead[port];
+          }
+          speed = Clip(speed_f, -255, 255); // Clip the speed to the range of -255 to 255.
+/*#ifdef DEBUG
+          printf("Speed: %d\n", speed);        
+#endif*/
+        }
+        
+        dir = 0;
+        if(speed < 0){
+          dir = 1;
+          speed *= (-1);
+        }
+        if(speed > 255){
+          speed = 255;
+        }
+        AddBits(1, 0, 10, ((((speed & 0xFF) << 2) | (dir << 1) | (0x01)) & 0x3FF));
       }
-      if(speed > 255){
-        speed = 255;
-      }
-      AddBits(1, 0, 10, ((((speed & 0xFF) << 2) | (dir << 1) | (BrickPi.MotorEnable[port] & 0x01)) & 0x3FF));
       ii++;
     }
     
@@ -466,8 +509,8 @@ __RETRY_COMMUNICATION__:
     
     unsigned char UART_TX_BYTES = (((Bit_Offset + 7) / 8) + 1);
     BrickPiTx(BrickPi.Address[i], UART_TX_BYTES, Array);
-    
-    int result = BrickPiRx(&BytesReceived, Array, 7500);
+    usleep(500);
+    int result = BrickPiRx(&BytesReceived, Array, 25000);
     
     if(result != -2){                            // -2 is the only error that indicates that the BrickPi uC did not properly receive the message
       BrickPi.EncoderOffset[((i * 2) + PORT_A)] = 0;
@@ -478,7 +521,7 @@ __RETRY_COMMUNICATION__:
 #ifdef DEBUG
       printf("BrickPiRx error: %d\n", result);
 #endif
-      if(Retried < 2){
+      if(Retried < 4){
         Retried++;
         goto __RETRY_COMMUNICATION__;
       }
@@ -499,12 +542,13 @@ __RETRY_COMMUNICATION__:
     
     ii = 0;
     while(ii < 2){
+      unsigned char port = ii + (i * 2);
       Temp_EncoderVal = GetBits(1, 0, Temp_BitsUsed[ii]);
       if(Temp_EncoderVal & 0x01){
         Temp_EncoderVal /= 2;
-        BrickPi.Encoder[ii + (i * 2)] = Temp_EncoderVal * (-1);}
+        BrickPi.Encoder[port] = Temp_EncoderVal * (-1);}
       else{
-        BrickPi.Encoder[ii + (i * 2)] = (Temp_EncoderVal / 2);}      
+        BrickPi.Encoder[port] = (Temp_EncoderVal / 2);}
       ii++;
     }
 
@@ -554,20 +598,708 @@ __RETRY_COMMUNICATION__:
       ii++;
     }      
     i++;
-  }
+  }       
   return 0;
 }
 
-int UART_file_descriptor = 0; 
+int I2C_file_descriptor = -1;
 
-int BrickPiSetup(){
-  UART_file_descriptor = serialOpen("/dev/ttyAMA0", 500000);
-  if(UART_file_descriptor == -1){
+int I2C_WriteArray(unsigned char addr, unsigned char ByteCount, unsigned char OutArray[]){
+  if (ioctl(I2C_file_descriptor, I2C_SLAVE, (addr >> 1)) < 0)
+    return -1;
+  if(write(I2C_file_descriptor, OutArray, ByteCount) != 1)  
+    return -2;
+  return 0;
+}
+
+int I2C_ReadArray(unsigned char addr, unsigned char ByteCount, unsigned char *InArray){
+  if (ioctl(I2C_file_descriptor, I2C_SLAVE, (addr >> 1)) < 0)
+    return -1;
+  if (read(I2C_file_descriptor, InArray, ByteCount) != 1)  
+    return -2;  
+  return 0;
+}
+
+int I2C_WriteReadArray(unsigned char addr, unsigned char OutByteCount, unsigned char OutArray[], unsigned char InByteCount, unsigned char *InArray){
+  if (ioctl(I2C_file_descriptor, I2C_SLAVE, (addr >> 1)) < 0)
+    return -1;
+  if(write(I2C_file_descriptor, OutArray, OutByteCount) != OutByteCount)  
+    return -2;
+  if (read(I2C_file_descriptor, InArray, InByteCount) != InByteCount)  
+    return -3;
+  return 0; 
+}
+
+int LED_1_value_file_descriptor = -1;
+int LED_2_value_file_descriptor = -1;
+
+// Set the state of one of the LEDs
+int BrickPiSetLed(unsigned char led, int value){
+  if(led > LED_2){
+    return -1;
+  }
+  BrickPi.LED[led] = value;
+  BrickPiUpdateLEDs();
+  return 0;
+}
+
+// Update the LEDs
+void BrickPiUpdateLEDs(){
+#if COMPILE_HOST == HOST_RPI
+  pwmWrite    (1,  BrickPi.LED[LED_1]     );     // Set the PWM of LED 1 (0-1023)
+  digitalWrite(2, (BrickPi.LED[LED_2]?1:0));     // Set the state of LED 2
+#else
+  if(BrickPi.LED[LED_1])
+    write(LED_1_value_file_descriptor, "1", 1);
+  else
+    write(LED_1_value_file_descriptor, "0", 1);
+  if(BrickPi.LED[LED_2])
+    write(LED_2_value_file_descriptor, "1", 1);
+  else
+    write(LED_2_value_file_descriptor, "0", 1);
+#endif
+}
+
+int UART_file_descriptor = -1; 
+
+/*
+  To safely shutdown the program, use:
+    sudo killall program -s 2
+  which sends signal 2 to process "program"
+*/
+
+// Turns off the LEDs, closes the open files, and exits the program
+void BrickPiExitSafely(int sig)                  // Exit the program safely
+{
+  signal(SIGINT , SIG_IGN);                      // Disable the signal interrupt
+  signal(SIGQUIT, SIG_IGN);                      // Disable the signal interrupt
+#ifdef DEBUG
+  printf("\nReceived exit signal %d\n", sig);    // Tell the user why the program is exiting
+#endif
+  BrickPiEmergencyStop();                        // Send E Stop to the BrickPi
+  
+  close(I2C_file_descriptor);
+  I2C_file_descriptor = -1;
+  
+#if COMPILE_HOST == HOST_RPI
+  pwmWrite    (1, 0);                            // Set the PWM of LED 1 to 0
+  digitalWrite(2, 0);                            // Set the state of LED 2 to 0
+  pinMode(1, INPUT);                             // Set LED 1 IO as INPUT
+  pinMode(2, INPUT);                             // Set LED 2 IO as INPUT
+#else 
+  write(LED_1_value_file_descriptor, "0", 1);
+  write(LED_2_value_file_descriptor, "0", 1);
+  close(LED_1_value_file_descriptor);
+  close(LED_2_value_file_descriptor);
+  LED_1_value_file_descriptor = -1;
+  LED_2_value_file_descriptor = -1;
+  if(SW_HOST == HOST_RPI){
+    system("echo in > /sys/class/gpio/gpio18/direction");    // Set GPIO as INPUT    
+    system("echo 18 > /sys/class/gpio/unexport");            // Unexport the GPIO
+    if(RPiRev == 1){
+      system("echo in > /sys/class/gpio/gpio21/direction");    // Set GPIO as INPUT
+      system("echo 21 > /sys/class/gpio/unexport");            // Unexport the GPIO
+    }else{
+      system("echo in > /sys/class/gpio/gpio27/direction");    // Set GPIO as INPUT
+      system("echo 27 > /sys/class/gpio/unexport");            // Unexport the GPIO
+    }
+  }else if(SW_HOST == HOST_BBB){
+    system("echo in > /sys/class/gpio/gpio50/direction");    // Set GPIO as INPUT
+    system("echo in > /sys/class/gpio/gpio51/direction");    // Set GPIO as INPUT
+    system("echo 50 > /sys/class/gpio/unexport");            // Unexport the GPIO
+    system("echo 51 > /sys/class/gpio/unexport");            // Unexport the GPIO
+  }  
+#endif
+  close(UART_file_descriptor);                   // Close the UART port
+  UART_file_descriptor = -1;
+  
+//  signal(SIGINT , BrickPiExitSafely);  Don't bother to re-enable
+//  signal(SIGQUIT, BrickPiExitSafely);  Don't bother to re-enable
+#ifdef DEBUG
+  printf("Exiting.\n");                          // Tell the user that the program is exiting
+#endif
+  exit(0);                                       // Exit
+}
+
+// Determine if -name- exists in -directory-
+// Returns:
+//   -1 error opening directory
+//    0 not found
+//    1 found
+int FileExists(const char *directory, const char *name)
+{
+  DIR *dirp;
+  struct dirent *dp;
+
+  dirp = opendir(directory);
+  if (dirp == NULL)
+    return -1;
+  
+  while(1){
+    dp = readdir(dirp);
+    if(dp == NULL){
+      closedir(dirp);
+      return 0;
+    }else{
+      if (strcmp(dp->d_name, name) == 0){
+        closedir(dirp);
+        return 1;
+      }
+    }
+  }
+}
+
+unsigned long BAUD_RATES[] = {2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 500000, 921600, 1000000, 1500000, 2000000, 3000000};
+
+// Convert from e.g. 9600 to B9600
+long BaudCompute(unsigned long baud){
+  switch (baud)
+  {
+    case      50: return      B50;
+    case      75: return      B75;
+    case     110: return     B110;
+    case     134: return     B134;
+    case     150: return     B150;
+    case     200: return     B200;
+    case     300: return     B300;
+    case     600: return     B600;
+    case    1200: return    B1200;
+    case    1800: return    B1800;
+    case    2400: return    B2400;
+    case    4800: return    B4800;
+    case    9600: return    B9600;
+    case   19200: return   B19200;
+    case   38400: return   B38400;
+    case   57600: return   B57600;
+    case  115200: return  B115200;
+    case  230400: return  B230400;
+    case  460800: return  B460800;
+    case  500000: return  B500000;
+    case  921600: return  B921600;
+    case 1000000: return B1000000;
+    case 1500000: return B1500000;
+    case 2000000: return B2000000;
+    case 3000000: return B3000000;
+    default:
+      return -1;
+  }
+}
+
+unsigned long BaudRate;
+
+// Configure the local UART
+int UART_Configure(unsigned long baud){
+  long result = BaudCompute(baud);
+  if(result == -1)
+    return -1;
+  
+  BaudRate = baud;
+  
+  struct termios options;
+  int     status;  
+  fcntl (UART_file_descriptor, F_SETFL, O_RDWR);
+
+// Get and modify current options:
+  tcgetattr (UART_file_descriptor, &options);
+
+  cfmakeraw   (&options);
+  cfsetispeed (&options, result);
+  cfsetospeed (&options, result);
+
+  options.c_cflag |= (CLOCAL | CREAD);
+  options.c_cflag &= ~PARENB;
+  options.c_cflag &= ~CSTOPB;
+  options.c_cflag &= ~CSIZE;
+  options.c_cflag |= CS8;
+  options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+  options.c_oflag &= ~OPOST;
+
+  options.c_cc [VMIN]  =  0;
+  options.c_cc [VTIME] = 10; // One second (10 deciseconds) // MT was 100
+
+  tcsetattr (UART_file_descriptor, TCSANOW | TCSAFLUSH, &options);
+
+  ioctl (UART_file_descriptor, TIOCMGET, &status);
+
+  status |= TIOCM_DTR;
+  status |= TIOCM_RTS;
+
+  ioctl (UART_file_descriptor, TIOCMSET, &status);
+  return 0;
+}
+
+// Attempt to force the BrickPi to use a specific baud rate
+int BrickPiForceBaud(unsigned long baud){
+  int i = 0;
+  while(i < 15){
+    if(BaudCompute(BAUD_RATES[i]) != -1){
+      if(BrickPiSetBaud(BAUD_RATES[i], baud) == 0){
+        return 0;
+      }
+      usleep(10000);
+    }
+    i++;
+  }
+  return -1;
+}
+
+// GetRPiRev() // Figure out the RPi hardware revision
+unsigned int GetRPiRev(){
+  FILE * filp;
+  unsigned rev;
+  char buf[512];
+  char term;
+  rev = 0;
+  filp = fopen ("/proc/cpuinfo", "r");
+  if (filp != NULL){
+    while (fgets(buf, sizeof(buf), filp) != NULL){
+      if (!strncasecmp("revision\t", buf, 9)){
+        if (sscanf(buf+strlen(buf)-5, "%x%c", &rev, &term) == 2){
+          if (term == '\n') break;
+          rev = 0;
+        }
+      }
+    }
+    fclose(filp);
+  }
+  return ((rev>=4)?2:1);
+}
+
+int StringFind(char *src, char *fnd){
+  unsigned char i = 0;
+  unsigned char ii = 0;
+  while(src[i] != 0){
+    while(src[i + ii] == fnd[ii]){
+      ii++;
+      if(fnd[ii] == 0){
+        return i;
+      }
+    }
+    ii = 0;
+    i++;
+  }
+  return -1;
+}
+
+int Enable_ttyO4(){
+//  system("echo enable-uart5 > /sys/devices/bone_capemgr.*/slots");
+
+  char name[40];                 // Should only need 33 + NULL terminator = 34
+  strcpy(name, "/sys/devices");
+  // open /sys/devices
+  DIR *dirp;
+  dirp = opendir(name);
+  if(dirp == NULL){
+    return 0;
+  }
+  
+  // look for bone_capemgr.*
+  struct dirent *dp;
+  unsigned char done = 0;
+  while(!done){
+    dp = readdir(dirp);
+    if(dp == NULL){
+      closedir(dirp);
+      return 0;
+    }else{
+      if(StringFind(dp->d_name, "bone_capemgr.") == 0){    // sometimes it's "bone_capemgr.8" and sometimes it's "bone_capemgr.9"
+        closedir(dirp);
+        strcat(name, "/");                                 // append "/" to name
+        strcat(name, dp->d_name);                          // append dp->d_name to name
+        done = 1;
+      }
+    }
+  }
+  
+  strcat(name, "/slots"); // append "/slots" to name
+  
+  // open the file with the exact directory name  
+  int fd = open(name, O_RDWR);
+  if(fd == -1){   
+    return 0;
+  }
+  
+  // write "enable-uart5"
+  #ifdef DEBUG
+    printf("enable-uart5 > %s\n", name);
+  #endif  
+  write(fd, "enable-uart5", 12);
+  close(fd);
+  return 1;
+}
+
+int Enable_i2c_1(){
+//  system("echo BB-I2C1 > /sys/devices/bone_capemgr.*/slots");
+
+  char name[40];                 // Should only need 33 + NULL terminator = 34
+  strcpy(name, "/sys/devices");
+  // open /sys/devices
+  DIR *dirp;
+  dirp = opendir(name);
+  if(dirp == NULL){
+    return 0;
+  }
+  
+  // look for bone_capemgr.*
+  struct dirent *dp;
+  unsigned char done = 0;
+  while(!done){
+    dp = readdir(dirp);
+    if(dp == NULL){
+      closedir(dirp);
+      return 0;
+    }else{
+      if(StringFind(dp->d_name, "bone_capemgr.") == 0){    // sometimes it's "bone_capemgr.8" and sometimes it's "bone_capemgr.9"
+        closedir(dirp);
+        strcat(name, "/");                                 // append "/" to name
+        strcat(name, dp->d_name);                          // append dp->d_name to name
+        done = 1;
+      }
+    }
+  }
+  
+  strcat(name, "/slots"); // append "/slots" to name
+  
+  // open the file with the exact directory name  
+  int fd = open(name, O_RDWR);
+  if(fd == -1){   
+    return 0;
+  }
+  
+  // write "BB-I2C1"
+  #ifdef DEBUG
+    printf("BB-I2C1 > %s\n", name);
+  #endif  
+  write(fd, "BB-I2C1", 7);
+  close(fd);
+  return 1;
+}
+
+// Determine the SW host. If it's RPI, then also enable i2c if necessary (every time it boots). If it's BBB, then also enable ttyO4 and i2c-1 if necessary (every time it boots).
+int Get_SW_HOST(){
+  // Determine SW_HOST
+  #if ((COMPILE_HOST == HOST_RPI) || (COMPILE_HOST == HOST_BBB))
+    SW_HOST = COMPILE_HOST;
+  #else
+    #ifdef DEBUG
+      printf("Determining SW_HOST...\n");
+    #endif
+    SW_HOST = 0;
+    // Determine by SW which host the program is running on (either RPi or BBB)
+    if(FileExists("/dev", "ttyAMA0") == 1){
+      SW_HOST = HOST_RPI;
+      #ifdef DEBUG
+        printf("SW_HOST = RPI\n");
+      #endif
+      if(FileExists("/dev", "i2c-0") != 1 || FileExists("/dev", "i2c-1") != 1){
+        system("gpio load i2c 10");
+      }
+      #ifdef DEBUG
+        if(FileExists("/dev", "i2c-0") != 1 || FileExists("/dev", "i2c-1") != 1){
+          printf("Enable i2c: failure\n");
+          return -1;
+        }else{
+          printf("Enable i2c: success\n");
+        }
+      #else
+        if(FileExists("/dev", "i2c-0") != 1 || FileExists("/dev", "i2c-1") != 1){
+          return -1;
+        }
+      #endif
+    }else{
+      if(FileExists("/dev", "ttyO4") == 1){
+        SW_HOST = HOST_BBB;
+        #ifdef DEBUG
+          printf("SW_HOST = HOST_BBB\n");
+        #endif
+      }else{
+        if(FileExists("/dev", "ttyO0") == 1){
+          #ifdef DEBUG
+            if(Enable_ttyO4() == 1){
+              printf("Enable ttyO4: success\n");
+            }else{
+              printf("Enable ttyO4: failure\n");          
+            }            
+          #else
+            Enable_ttyO4();
+          #endif
+          if(FileExists("/dev", "ttyO4") == 1){
+            SW_HOST = HOST_BBB;
+            #ifdef DEBUG
+              printf("SW_HOST = HOST_BBB\n");
+            #endif
+          }else{
+            return -1;
+          }
+        }
+        else{
+          return -1;
+        }
+      }
+      if(SW_HOST == HOST_BBB){
+        if(FileExists("/dev", "i2c-2") != 1){
+          #ifdef DEBUG
+            if(Enable_i2c_1() == 1){
+              printf("Enable i2c-1: success\n");
+            }else{
+              printf("Enable i2c-1: failure\n");          
+            }            
+          #else
+            Enable_i2c_1();
+          #endif
+          if(FileExists("/dev", "i2c-2") != 1){
+            return -1;
+          }
+        }
+      }
+    }
+  #endif
+
+  // Print the SW_HOST
+  #ifdef DEBUG  
+    printf("SW_HOST = %d\n", SW_HOST);  
+  #endif
+
+  // Is SW_HOST supported?
+  if(((SW_HOST != HOST_RPI) && (SW_HOST != HOST_BBB))){
+    #ifdef DEBUG
+      printf("SW_HOST not supported.\n");
+    #endif
+    return -1;
+  }
+  
+  return 0;
+}
+
+int BrickPiSetupLEDs(){
+  // Setup the LED GPIOs based on the COMPILE_HOST or SW_HOST
+  #if COMPILE_HOST == HOST_RPI
+    if(wiringPiSetup() == -1)                                     // If wiringPiSetup failed
+      return -1;                                                  //   return -1  
+    pinMode(1, PWM_OUTPUT);                                       // LED 1
+    pinMode(2, OUTPUT);                                           // LED 2
+  #else
+    
+    // If LED 1 file is already open, close it
+    if(LED_1_value_file_descriptor != -1){
+      close(LED_1_value_file_descriptor);
+      LED_1_value_file_descriptor = -1;
+    }
+    // If LED 2 file is already open, close it
+    if(LED_2_value_file_descriptor != -1){
+      close(LED_2_value_file_descriptor);
+      LED_2_value_file_descriptor = -1;
+    }
+    
+    // Setup the LED GPIOs specific to the host platform
+    if(SW_HOST == HOST_RPI){
+      system("echo 18 > /sys/class/gpio/export");                   // Export the GPIO for use
+      system("echo low > /sys/class/gpio/gpio18/direction");        // Enable the GPIO as OUTPUT and set LOW    
+      LED_1_value_file_descriptor = open("/sys/class/gpio/gpio18/value", O_RDWR | O_CREAT);
+      // Setup LED 2 specific to the RPi Revision
+      if(RPiRev == 1){
+        system("echo 21 > /sys/class/gpio/export");                   // Export the GPIO for use    
+        system("echo low > /sys/class/gpio/gpio21/direction");        // Enable the GPIO as OUTPUT and set LOW
+        LED_2_value_file_descriptor = open("/sys/class/gpio/gpio21/value", O_RDWR | O_CREAT);
+      }else{        // RPiRev == 2
+        system("echo 27 > /sys/class/gpio/export");                   // Export the GPIO for use    
+        system("echo low > /sys/class/gpio/gpio27/direction");        // Enable the GPIO as OUTPUT and set LOW    
+        LED_2_value_file_descriptor = open("/sys/class/gpio/gpio27/value", O_RDWR | O_CREAT);
+      }   
+    }else if(SW_HOST == HOST_BBB){
+      system("echo 50 > /sys/class/gpio/export");                   // Export the GPIO for use
+      system("echo low > /sys/class/gpio/gpio50/direction");        // Enable the GPIO as OUTPUT and set LOW  
+      LED_1_value_file_descriptor = open("/sys/class/gpio/gpio50/value", O_RDWR | O_CREAT);  
+      system("echo 51 > /sys/class/gpio/export");                   // Export the GPIO for use    
+      system("echo low > /sys/class/gpio/gpio51/direction");        // Enable the GPIO as OUTPUT and set LOW    
+      LED_2_value_file_descriptor = open("/sys/class/gpio/gpio51/value", O_RDWR | O_CREAT);
+    }
+    // If there was an error opening one of the LED GPIO files, then close the other.
+    if(LED_1_value_file_descriptor == -1){
+      if(LED_2_value_file_descriptor != -1){
+        close(LED_2_value_file_descriptor);
+        LED_2_value_file_descriptor = -1;
+      }
+      return -1;
+    }else if(LED_2_value_file_descriptor == -1){
+      close(LED_1_value_file_descriptor);
+      LED_1_value_file_descriptor = -1;
+      return -1;
+    }
+  #endif
+  return 0;
+}
+
+int BrickPiSetupI2C(unsigned long speed){
+
+  
+  // If I2C file is already open, close it
+  if(I2C_file_descriptor != -1){
+    close(I2C_file_descriptor);
+    I2C_file_descriptor = -1;
+  }  
+  
+  // Setup the HW I2C based on the SW_HOST
+  if(SW_HOST == HOST_RPI){
+    if(speed < 5000)
+      speed = 5000;
+    if(speed > 1000000)
+      speed = 1000000;
+    char str[80];
+    
+    sprintf(str, "sudo modprobe -r i2c_bcm2708 && sudo modprobe i2c_bcm2708 baudrate=%d", speed);
+    system(str);
+    
+    // Setup HW I2C specific to the RPi Revision
+    if(RPiRev == 1){
+      I2C_file_descriptor = open("/dev/i2c-0", O_RDWR);
+    }else{
+      I2C_file_descriptor = open("/dev/i2c-1", O_RDWR);
+    }
+  }else if(SW_HOST == HOST_BBB){
+    I2C_file_descriptor = open("/dev/i2c-2", O_RDWR);
+  }
+
+  if(I2C_file_descriptor == -1)
+    return -1;
+  return 0;
+}
+
+int BrickPiOpenUART(){
+  // If UART port is open already, then close it
+  if(UART_file_descriptor != -1){                  
+    close(UART_file_descriptor);
+    UART_file_descriptor = -1;
+  }
+
+  // Open the UART port specific to the host, and set BAUD_IDEAL accordingly
+  if(SW_HOST == HOST_RPI){
+    UART_file_descriptor = open ("/dev/ttyAMA0", O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
+    BAUD_IDEAL = 500000;
+  }else if(SW_HOST == HOST_BBB){
+    UART_file_descriptor = open ("/dev/ttyO4", O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
+//    UART_file_descriptor = open ("/dev/ttyUSB0", O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
+    BAUD_IDEAL = 115200;
+  }  
+  
+  // If it failed to open the UART port
+  if (UART_file_descriptor == -1){
     return -1;
   }
   return 0;
 }
 
+int BrickPiConfigBaud(){
+  // Set the UART Baud rate to BAUD_IDEAL
+  unsigned char i = 0;
+  while(i < 5){    
+    if(!BrickPiSetBaud(BAUD_IDEAL, BAUD_IDEAL))
+      break;
+    if(!BrickPiSetBaud(BAUD_DEFAULT, BAUD_IDEAL))
+      break;
+    if(!BrickPiSetBaud(BAUD_IDEAL, BAUD_IDEAL))
+      break;
+    if(!BrickPiForceBaud(BAUD_IDEAL))
+      break;
+    if(i == 4)
+      return -1;
+    i++;
+  }
+  return 0;
+}
+
+// Setup the host and the BrickPi. Determine the host, setup the LED GPIO, setup UART, set the BrickPi timeout, initialize the exit signal handlers.
+int BrickPiSetup(){
+  // Setup the exit signal handlers  
+  if(signal(SIGINT , BrickPiExitSafely) == SIG_ERR ||           // Setup exit signal SIGINT
+    signal(SIGQUIT, BrickPiExitSafely) == SIG_ERR){             // and SIGQUIT
+    #ifdef DEBUG
+      printf("Exit signal install error\n");
+    #endif
+    return -1;                                                  // and return -1
+  }
+
+  // Determine the SW_HOST  
+  if(Get_SW_HOST()){
+    return -2;
+  }
+  
+  if(SW_HOST == HOST_RPI){
+    RPiRev = GetRPiRev();
+  }
+  
+  // Setup the LED IOs  
+  if(BrickPiSetupLEDs()){
+    return -3;
+  }
+  
+  // Setup the HW I2C for sensor port 5
+  if(BrickPiSetupI2C(100000)){
+    return -4;
+  }
+  
+  // Open the UART port  
+  if(BrickPiOpenUART()){
+    return -5;
+  }
+  
+  // Set the BAUD rate to BAUD_IDEAL  
+  if(BrickPiConfigBaud()){
+    return -6;
+  }
+  
+  // Set the BrickPi timeout
+  if(BrickPiSetTimeout() == -1){
+    return -7;
+  }
+  
+  // Setup the motor defaults
+  int i = 0;
+  while(i < (NUMBER_OF_BRICKPIS * 4)){
+    BrickPi.MotorTargetKP[i] = MOTOR_KP_DEFAULT;           // Set to default
+    BrickPi.MotorTargetKD[i] = MOTOR_KD_DEFAULT;           //      ''
+    BrickPi.MotorDead    [i] = MOTOR_DEAD_DEFAULT;         //      ''
+    i++;
+  }
+  return 0;                                                // return 0
+}
+
+int BrickPiSetupAddress(unsigned char OldAddr, unsigned char NewAddr){
+  // Setup the exit signal handlers  
+  if(signal(SIGINT , BrickPiExitSafely) == SIG_ERR ||           // Setup exit signal SIGINT
+    signal(SIGQUIT, BrickPiExitSafely) == SIG_ERR){             // and SIGQUIT
+    #ifdef DEBUG
+      printf("Exit signal install error\n");
+    #endif
+    return -1;                                                  // and return -1
+  }
+
+  // Determine the SW_HOST  
+  if(Get_SW_HOST()){
+    return -1;
+  }
+  
+  // Setup the LED IOs  
+  if(BrickPiSetupLEDs()){
+    return -1;
+  }
+  
+  // Open the UART port  
+  if(BrickPiOpenUART()){
+    return -1;
+  }
+  
+  UART_Configure(BAUD_DEFAULT);  
+  if(BrickPiChangeAddress(OldAddr, NewAddr)){
+    UART_Configure(BAUD_IDEAL);
+    if(BrickPiChangeAddress(OldAddr, NewAddr)){
+      return -1;
+    }
+  }
+  return 0;
+}
+
+// Send an array of data to the BrickPi. Trash any rx bytes, transmit the message, and wait until is is sent.
 void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArray[]){
   unsigned char tx_buffer[256];
   tx_buffer[0] = dest;
@@ -578,14 +1310,44 @@ void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArr
     tx_buffer[1] += OutArray[i];
     tx_buffer[i + 3] = OutArray[i];
     i++;
-  }
-  i = 0;
-  while(i < (ByteCount + 3)){
-    serialPutchar(UART_file_descriptor, tx_buffer[i]);
-    i++;
-  }
+  }  
+  ByteCount += 3;  
+//  BrickPiSetLed(LED_1, 1);  
+  BrickPiRxFlush();
+  write(UART_file_descriptor, tx_buffer, ByteCount);  
+  usleep((((1000000 * 10) / BaudRate) * ByteCount));  
+//  BrickPiSetLed(LED_1, 0);
 }
 
+// Determine how many bytes are in the Rx buffer, ready to be read
+int BrickPiRxBytes(){
+  int result;
+  if (ioctl (UART_file_descriptor, FIONREAD, &result) == -1)
+    return -1;
+  return result;
+}
+
+// Trash any data in the Rx buffer
+int BrickPiRxFlush(){
+  int result = BrickPiRxBytes();
+  if(result > 255)
+    result = 255;
+  if(result == -1)
+    return -1;
+  
+  while(result){
+    unsigned char rx_trash_buffer[256];
+    read(UART_file_descriptor, rx_trash_buffer, result);
+    result = BrickPiRxBytes();
+    if(result == -1)
+      return -1;
+    if(result > 255)
+      result = 255;
+  }
+  return 0;
+}
+
+// Receive a UART message
 int BrickPiRx(unsigned char *InBytes, unsigned char *InArray, long timeout){  // timeout in uS, not mS
   unsigned char rx_buffer[256];
   unsigned char RxBytes = 0;
@@ -593,27 +1355,26 @@ int BrickPiRx(unsigned char *InBytes, unsigned char *InArray, long timeout){  //
   unsigned char i = 0;
   int result;
   unsigned long OrigionalTick = CurrentTickUs();
-  while(serialDataAvail(UART_file_descriptor) <= 0){
-    if(timeout && ((CurrentTickUs() - OrigionalTick) >= timeout))return -2;
-  }
 
-  RxBytes = 0;
-  while(RxBytes < serialDataAvail(UART_file_descriptor)){                                   // If it's been 1 ms since the last data was received, assume it's the end of the message.
-    RxBytes = serialDataAvail(UART_file_descriptor);
-    usleep(75);
+  result = BrickPiRxBytes();
+  while(result == 0){
+    if(timeout && ((CurrentTickUs() - OrigionalTick) >= timeout))return -2;
+    usleep(100);
+    result = BrickPiRxBytes();    
   }
   
-  i = 0;  
-  while(i < RxBytes){
-    result = serialGetchar(UART_file_descriptor);
-    if(result >= 0){
-      rx_buffer[i] = result;
-    }
-    else{      
-      return -1;    
-    }
-    i++;    
+  if(result == -1)return -1;
+  
+  RxBytes = 0;
+  while(RxBytes < result){                       // If it's been <<<2 times a single byte time>>> since the last data was received, assume it's the end of the message.
+    RxBytes = result;
+    usleep((((1000000 * 10) / BaudRate) * 2));
+    result = BrickPiRxBytes();
+    if(result == -1)return -1;
   }
+
+  if (read(UART_file_descriptor, rx_buffer, RxBytes) != RxBytes)
+    return -1;
 
   if(RxBytes < 2)
     return -4;
