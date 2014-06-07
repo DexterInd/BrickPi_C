@@ -1,11 +1,19 @@
 /*
 *  Jaikrishna
 *  t.s.jaikrishna<at>gmail.com
-*  Initial date: June 21, 2013
+*  Initial date:  	June 21, 2013
+*  Updated : 		May 30, 2014
 *  Based on Matthew Richardson's example on testing BrickPi drivers and Xander Soldaat's Example on NXT for RobotC
 *  You may use this code as you wish, provided you give credit where it's due.
 *  
 *  This is a program for testing the RPi BrickPi drivers and I2C communication on the BrickPi with a dCompass on HMC5883L 
+*
+# These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
+# (http://creativecommons.org/licenses/by-sa/3.0/)
+#
+# http://www.dexterindustries.com/
+# This code is for testing the BrickPi with the Compass from Dexter Industries
+# Product webpage: http://www.dexterindustries.com/dCompass.html
 */
 
 #include <stdio.h>
@@ -125,15 +133,22 @@ End_loop */
       if(!result){
 
         if(BrickPi.Sensor[I2C_PORT] & (0x01 << I2C_DEVICE_DCOM)){
-          X = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1]);
-          Z = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][2]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][3]);
-          Y = ((BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4]&0x01)?-1:1)*(BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5]);
+		  
+		  X = (int)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][1];
+		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][0] > 0){
+			X = -1*(255-X);
+		  }
+
+		  Y = (int)BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][5];
+		  if (BrickPi.SensorI2CIn[I2C_PORT][I2C_DEVICE_DCOM][4] > 0){
+			Y = -1*(255-Y);
+		  }
           
 		  angle = atan2(X,Y);
 		  if(angle<0) angle += 2*PI;
 		  angle *= 180/PI;
          
-          printf("X: %d  Y: %d  Z: %d  H:%f \n", X, Y, Z,angle);
+          printf("X: %d  Y: %d  H:%f \n", X, Y, angle);
         
         }
       }
