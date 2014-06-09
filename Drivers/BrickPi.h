@@ -2,11 +2,14 @@
 *  Matthew Richardson
 *  matthewrichardson37<at>gmail.com
 *  http://mattallen37.wordpress.com/
+*  
+*  Jaikrishna T S
+*  t.s.jaikrishna<at>gmail.com
 *
 *  Updated by John Cole, Dexter Industries.   
 *
 *  Initial date: June 4, 2013
-*  Last updated: Oct 7, 2013
+*  Last updated: June 9, 2014
 *
 * These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
 * (http://creativecommons.org/licenses/by-sa/3.0/)
@@ -90,6 +93,35 @@
 #define TYPE_SENSOR_COLOR_NONE         40
 #define TYPE_SENSOR_I2C                41
 #define TYPE_SENSOR_I2C_9V             42
+
+
+#define TYPE_SENSOR_EV3_US_M0          43
+#define TYPE_SENSOR_EV3_US_M1          44
+#define TYPE_SENSOR_EV3_US_M2          45
+#define TYPE_SENSOR_EV3_US_M3          46
+#define TYPE_SENSOR_EV3_US_M4          47
+#define TYPE_SENSOR_EV3_US_M5          48
+#define TYPE_SENSOR_EV3_US_M6          49
+
+#define TYPE_SENSOR_EV3_COLOR_M0       50
+#define TYPE_SENSOR_EV3_COLOR_M1       51
+#define TYPE_SENSOR_EV3_COLOR_M2       52
+#define TYPE_SENSOR_EV3_COLOR_M3       53
+#define TYPE_SENSOR_EV3_COLOR_M4       54
+#define TYPE_SENSOR_EV3_COLOR_M5       55
+
+#define TYPE_SENSOR_EV3_GYRO_M0        56
+#define TYPE_SENSOR_EV3_GYRO_M1        57
+#define TYPE_SENSOR_EV3_GYRO_M2        58
+#define TYPE_SENSOR_EV3_GYRO_M3        59
+#define TYPE_SENSOR_EV3_GYRO_M4        60
+
+#define TYPE_SENSOR_EV3_INFRARED_M0    61
+#define TYPE_SENSOR_EV3_INFRARED_M1    62
+#define TYPE_SENSOR_EV3_INFRARED_M2    63
+#define TYPE_SENSOR_EV3_INFRARED_M3    64
+#define TYPE_SENSOR_EV3_INFRARED_M4    65
+#define TYPE_SENSOR_EV3_INFRARED_M5    66
 
 #define BIT_I2C_MID  0x01  // Do one of those funny clock pulses between writing and reading. defined for each device.
 #define BIT_I2C_SAME 0x02  // The transmit data, and the number of bytes to read and write isn't going to change. defined for each device.
@@ -368,7 +400,7 @@ int BrickPiSetupSensors(){
     }
     unsigned char UART_TX_BYTES = (((Bit_Offset + 7) / 8) + 3);
     BrickPiTx(BrickPi.Address[i], UART_TX_BYTES, Array);
-    if(BrickPiRx(&BytesReceived, Array, 500000))
+    if(BrickPiRx(&BytesReceived, Array, 5000000))
       return -1;
     if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_SENSOR_TYPE))
       return -1;
@@ -541,6 +573,34 @@ __RETRY_COMMUNICATION__:
             device++;
           }
         break;      
+        case TYPE_SENSOR_EV3_US_M0       :
+        case TYPE_SENSOR_EV3_US_M1       :
+        case TYPE_SENSOR_EV3_US_M2       :
+        case TYPE_SENSOR_EV3_US_M3       :
+        case TYPE_SENSOR_EV3_US_M4       :
+        case TYPE_SENSOR_EV3_US_M5       :
+        case TYPE_SENSOR_EV3_US_M6       :
+        case TYPE_SENSOR_EV3_COLOR_M0    :
+        case TYPE_SENSOR_EV3_COLOR_M1    :
+        case TYPE_SENSOR_EV3_COLOR_M2    :
+        case TYPE_SENSOR_EV3_COLOR_M4    :
+        case TYPE_SENSOR_EV3_COLOR_M5    :
+        case TYPE_SENSOR_EV3_GYRO_M0     :
+        case TYPE_SENSOR_EV3_GYRO_M1     :
+        case TYPE_SENSOR_EV3_GYRO_M2     :
+        case TYPE_SENSOR_EV3_GYRO_M4     :
+        case TYPE_SENSOR_EV3_INFRARED_M0 :
+        case TYPE_SENSOR_EV3_INFRARED_M1 :
+        case TYPE_SENSOR_EV3_INFRARED_M3 :
+        case TYPE_SENSOR_EV3_INFRARED_M4 :
+        case TYPE_SENSOR_EV3_INFRARED_M5 :
+          BrickPi.Sensor[port] = GetBits(1, 0, 16);
+        break;
+        case TYPE_SENSOR_EV3_COLOR_M3    :
+        case TYPE_SENSOR_EV3_GYRO_M3     :
+        case TYPE_SENSOR_EV3_INFRARED_M2 :
+          BrickPi.Sensor[port] = GetBits(1, 0,32);
+        break;
         case TYPE_SENSOR_LIGHT_OFF:
         case TYPE_SENSOR_LIGHT_ON:
         case TYPE_SENSOR_RCX_LIGHT:
