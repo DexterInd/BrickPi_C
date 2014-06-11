@@ -46,9 +46,9 @@ int main() {
   BrickPi.Address[1] = 2;
  
   BrickPi.SensorType[PORT_1] = TYPE_SENSOR_TOUCH;
-  BrickPi.SensorType[PORT_2] = TYPE_SENSOR_TOUCH;
-  BrickPi.SensorType[PORT_3] = TYPE_SENSOR_TOUCH;
-  BrickPi.SensorType[PORT_4] = TYPE_SENSOR_TOUCH;
+  // BrickPi.SensorType[PORT_2] = TYPE_SENSOR_TOUCH;
+  // BrickPi.SensorType[PORT_3] = TYPE_SENSOR_TOUCH;
+  // BrickPi.SensorType[PORT_4] = TYPE_SENSOR_TOUCH;
 
   result = BrickPiSetupSensors();
   printf("BrickPiSetupSensors: %d\n", result); 
@@ -61,7 +61,8 @@ int main() {
 
       if(!result){
       	
-         printf("Results: %3.1d %3.1d %3.1d %3.1d \n", BrickPi.Sensor[PORT_1], BrickPi.Sensor[PORT_2],BrickPi.Sensor[PORT_3], BrickPi.Sensor[PORT_4] );
+         // printf("Results: %3.1d %3.1d %3.1d %3.1d \n", BrickPi.Sensor[PORT_1], BrickPi.Sensor[PORT_2],BrickPi.Sensor[PORT_3], BrickPi.Sensor[PORT_4] );
+         printf("Results: %3.1d \n", BrickPi.Sensor[PORT_1] );		 
    
        }
       usleep(10000);
