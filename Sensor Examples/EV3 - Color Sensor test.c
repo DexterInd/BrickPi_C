@@ -2,9 +2,13 @@
 *  Jaikrishna
 *  t.s.jaikrishna<at>gmail.com
 *  Initial date: June 9, 2014
+*  Updated date: June 11, 2014 (John)
 *  You may use this code as you wish, provided you give credit where it's due.
 *
 *  This is a program for testing the RPi BrickPi driver with EV3 Color Sensor
+
+* Example Returns Ambient Reflected Light from the color sensor on Port 1.
+
 */
 
 #include <stdio.h>
@@ -31,7 +35,7 @@
 //#define DEBUG
 int result,val;
 //#undef DEBUG
-#define US_PORT         PORT_1                      // For the FW Ultrasonic sensor support, use port 3
+#define SENSOR_PORT         PORT_1                      // For the FW Ultrasonic sensor support, use port 3
 
 int main() {
   ClearTick();
@@ -44,7 +48,7 @@ int main() {
   BrickPi.Address[0] = 1;
   BrickPi.Address[1] = 2;
 
-  BrickPi.SensorType[US_PORT] = TYPE_SENSOR_EV3_COLOR_M1;
+  BrickPi.SensorType[SENSOR_PORT] = TYPE_SENSOR_EV3_COLOR_M1;
   
   result = BrickPiSetupSensors();
   printf("BrickPiSetupSensors: %d\n", result); 
@@ -57,7 +61,7 @@ int main() {
       result = BrickPiUpdateValues();
 
       if(!result){
-      	 val = BrickPi.Sensor[US_PORT];
+      	 val = BrickPi.Sensor[SENSOR_PORT];
 	if(val <= 100)
          printf("Results: %d \n", val);
    

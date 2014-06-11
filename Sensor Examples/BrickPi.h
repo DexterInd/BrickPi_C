@@ -94,31 +94,36 @@
 #define TYPE_SENSOR_I2C                41
 #define TYPE_SENSOR_I2C_9V             42
 
+// Mode information is here: https://github.com/mindboards/ev3dev/wiki/LEGO-EV3-Ultrasonic-Sensor-%2845504%29
 
-#define TYPE_SENSOR_EV3_US_M0          43
-#define TYPE_SENSOR_EV3_US_M1          44
-#define TYPE_SENSOR_EV3_US_M2          45
+#define TYPE_SENSOR_EV3_US_M0          43	// Continuous measurement, distance, cm
+#define TYPE_SENSOR_EV3_US_M1          44	// Continuous measurement, distance, in
+#define TYPE_SENSOR_EV3_US_M2          45	// Listen // 0 r 1 depending on presence of another US sensor.
 #define TYPE_SENSOR_EV3_US_M3          46
 #define TYPE_SENSOR_EV3_US_M4          47
 #define TYPE_SENSOR_EV3_US_M5          48
 #define TYPE_SENSOR_EV3_US_M6          49
 
-#define TYPE_SENSOR_EV3_COLOR_M0       50
-#define TYPE_SENSOR_EV3_COLOR_M1       51
-#define TYPE_SENSOR_EV3_COLOR_M2       52
-#define TYPE_SENSOR_EV3_COLOR_M3       53
-#define TYPE_SENSOR_EV3_COLOR_M4       54
-#define TYPE_SENSOR_EV3_COLOR_M5       55
 
-#define TYPE_SENSOR_EV3_GYRO_M0        56
-#define TYPE_SENSOR_EV3_GYRO_M1        57
-#define TYPE_SENSOR_EV3_GYRO_M2        58
-#define TYPE_SENSOR_EV3_GYRO_M3        59
-#define TYPE_SENSOR_EV3_GYRO_M4        60
+#define TYPE_SENSOR_EV3_COLOR_M0       50	// Reflected
+#define TYPE_SENSOR_EV3_COLOR_M1       51	// Ambient
+#define TYPE_SENSOR_EV3_COLOR_M2       52	// Color  // Min is 0, max is 7 (brown)
+#define TYPE_SENSOR_EV3_COLOR_M3       53	// Raw reflected
+#define TYPE_SENSOR_EV3_COLOR_M4       54	// Raw Color Components
+#define TYPE_SENSOR_EV3_COLOR_M5       55	// Calibration???
 
-#define TYPE_SENSOR_EV3_INFRARED_M0    61
-#define TYPE_SENSOR_EV3_INFRARED_M1    62
-#define TYPE_SENSOR_EV3_INFRARED_M2    63
+// Mode information is here: https://github.com/mindboards/ev3dev/wiki/LEGO-EV3-Gyro-Sensor-(45505)
+
+#define TYPE_SENSOR_EV3_GYRO_M0        56	// Angle
+#define TYPE_SENSOR_EV3_GYRO_M1        57	// Rotational Speed
+#define TYPE_SENSOR_EV3_GYRO_M2        58	// Raw sensor value ???
+#define TYPE_SENSOR_EV3_GYRO_M3        59	// Angle and Rotational Speed
+#define TYPE_SENSOR_EV3_GYRO_M4        60	// Calibration ???
+
+// Mode information is here:  https://github.com/mindboards/ev3dev/wiki/LEGO-EV3-Infrared-Sensor-%2845509%29
+#define TYPE_SENSOR_EV3_INFRARED_M0    61	// Proximity, 0 to 100
+#define TYPE_SENSOR_EV3_INFRARED_M1    62	// IR Seek, -25 (far left) to 25 (far right)
+#define TYPE_SENSOR_EV3_INFRARED_M2    63	// IR Remote Control, 0 - 11 
 #define TYPE_SENSOR_EV3_INFRARED_M3    64
 #define TYPE_SENSOR_EV3_INFRARED_M4    65
 #define TYPE_SENSOR_EV3_INFRARED_M5    66
