@@ -9,7 +9,7 @@
 *  Updated by John Cole, Dexter Industries.   
 *
 *  Initial date: June 4, 2013
-*  Last updated: June 9, 2014
+*  Last updated: June 19, 2014
 *
 * These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
 * (http://creativecommons.org/licenses/by-sa/3.0/)
@@ -122,6 +122,8 @@
 #define TYPE_SENSOR_EV3_INFRARED_M3    64
 #define TYPE_SENSOR_EV3_INFRARED_M4    65
 #define TYPE_SENSOR_EV3_INFRARED_M5    66
+
+#define TYPE_SENSOR_EV3_TOUCH_0		   67
 
 #define BIT_I2C_MID  0x01  // Do one of those funny clock pulses between writing and reading. defined for each device.
 #define BIT_I2C_SAME 0x02  // The transmit data, and the number of bytes to read and write isn't going to change. defined for each device.
@@ -596,7 +598,10 @@ __RETRY_COMMUNICATION__:
         case TYPE_SENSOR_EV3_INFRARED_M3 :
         case TYPE_SENSOR_EV3_INFRARED_M4 :
         case TYPE_SENSOR_EV3_INFRARED_M5 :
+		case TYPE_SENSOR_EV3_TOUCH_0:
           BrickPi.Sensor[port] = GetBits(1, 0, 16);
+          // gotten_bits = GetBits(1, 0, 16);		  		// Just test code
+		  // printf("First Test: %d \n", gotten_bits );		// Just test code
         break;
         case TYPE_SENSOR_EV3_COLOR_M3    :
         case TYPE_SENSOR_EV3_GYRO_M3     :
