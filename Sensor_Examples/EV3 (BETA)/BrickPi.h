@@ -133,6 +133,13 @@
 #define INDEX_BLUE  2
 #define INDEX_BLANK 3
 
+//US Fix starts
+# define US_I2C_SPEED 10 //#tweak this value 
+# define US_I2C_IDX 0
+# define LEGO_US_I2C_ADDR 0x02
+# define LEGO_US_I2C_DATA_REG 0x42
+//US Fix ends
+
 long gotten_bits = 0;
 
 void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArray[]);
@@ -372,6 +379,19 @@ int BrickPiSetupSensors(){
     ii = 0;
     while(ii < 2){
       unsigned char port = (i * 2) + ii;
+	  //US Fix starts
+	  if(Array[BYTE_SENSOR_1_TYPE + ii] == TYPE_SENSOR_ULTRASONIC_CONT)
+	  {
+		Array[BYTE_SENSOR_1_TYPE + ii] = TYPE_SENSOR_I2C;
+		BrickPi.SensorI2CSpeed[port] = US_I2C_SPEED;
+		BrickPi.SensorI2CDevices[port] = 1;
+		BrickPi.SensorSettings[port][US_I2C_IDX] = BIT_I2C_MID | BIT_I2C_SAME;
+		BrickPi.SensorI2CAddr[port][US_I2C_IDX] = LEGO_US_I2C_ADDR;
+		BrickPi.SensorI2CWrite [port][US_I2C_IDX]    = 1;
+		BrickPi.SensorI2CRead  [port][US_I2C_IDX]    = 1;
+		BrickPi.SensorI2COut   [port][US_I2C_IDX][0] = LEGO_US_I2C_DATA_REG;
+	  }
+	  //US Fix Ends
       if(Array[BYTE_SENSOR_1_TYPE + ii] == TYPE_SENSOR_I2C
       || Array[BYTE_SENSOR_1_TYPE + ii] == TYPE_SENSOR_I2C_9V){
         AddBits(3, 0, 8, BrickPi.SensorI2CSpeed[port]);
@@ -481,8 +501,10 @@ __RETRY_COMMUNICATION__:
     ii = 0;
     while(ii < 2){
       unsigned char port = (i * 2) + ii;
-      if(BrickPi.SensorType[port] == TYPE_SENSOR_I2C
-      || BrickPi.SensorType[port] == TYPE_SENSOR_I2C_9V){
+      //if(BrickPi.SensorType[port] == TYPE_SENSOR_I2C || BrickPi.SensorType[port] == TYPE_SENSOR_I2C_9V){
+	  //US Fix starts
+	  if(BrickPi.SensorType[port] == TYPE_SENSOR_I2C || BrickPi.SensorType[port] == TYPE_SENSOR_I2C_9V|| BrickPi.SensorType[port] == TYPE_SENSOR_ULTRASONIC_CONT){
+	  //US Fix ends
         unsigned char device = 0;
         while(device < BrickPi.SensorI2CDevices[port]){
           if(!(BrickPi.SensorSettings[port][device] & BIT_I2C_SAME)){
@@ -551,8 +573,10 @@ __RETRY_COMMUNICATION__:
         case TYPE_SENSOR_TOUCH:
           BrickPi.Sensor[port] = GetBits(1, 0, 1);
         break;
-        case TYPE_SENSOR_ULTRASONIC_CONT:
-        case TYPE_SENSOR_ULTRASONIC_SS:
+		//US Fix
+        //case TYPE_SENSOR_ULTRASONIC_CONT:
+        //case TYPE_SENSOR_ULTRASONIC_SS:
+		case TYPE_SENSOR_ULTRASONIC_SS:
           BrickPi.Sensor[port] = GetBits(1, 0, 8);
         break;
         case TYPE_SENSOR_COLOR_FULL:
@@ -564,6 +588,9 @@ __RETRY_COMMUNICATION__:
         break;          
         case TYPE_SENSOR_I2C:
         case TYPE_SENSOR_I2C_9V:
+		//US Fix Starts
+		case TYPE_SENSOR_ULTRASONIC_CONT:
+		//US Fix Ends
           BrickPi.Sensor[port] = GetBits(1, 0, BrickPi.SensorI2CDevices[port]);
           unsigned char device = 0;
           while(device < BrickPi.SensorI2CDevices[port]){
@@ -629,7 +656,14 @@ __RETRY_COMMUNICATION__:
         case TYPE_SENSOR_COLOR_NONE:
         default:
           BrickPi.Sensor[(ii + (i * 2))] = GetBits(1, 0, 10);
-      }        
+      }
+	  if (BrickPi.SensorType[port] == TYPE_SENSOR_ULTRASONIC_CONT)
+	  {
+	    if(BrickPi.Sensor[port] & ( 0x01 << US_I2C_IDX)) 
+			BrickPi.Sensor[port] = BrickPi.SensorI2CIn[port][US_I2C_IDX][0];
+		else
+			BrickPi.Sensor[port] = -1;
+	  }
       ii++;
     }      
     i++;
