@@ -4,6 +4,7 @@ This script is intended for updating the Software packages on the Raspberry Pi I
  
 Before running the script make sure that you are using the ** image of the Dexter Industries Raspbian Flavour**  from here: http://sourceforge.net/projects/dexterindustriesraspbianflavor/
  
+Run as root (sudo).
 First update the BrickPi C repository:
 - Go the the BrickPi_C folder
     > cd BrickPi_C
