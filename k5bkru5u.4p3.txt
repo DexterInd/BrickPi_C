@@ -1,0 +1,19 @@
+﻿gi Revert "Utrasonic fix added to EV3 C library"
+
+This reverts commit 10ea764a31186dfdd281e436d9a274ac7419afb1.
+
+Conflicts:
+	Sensor_Examples/EV3 (BETA)/BrickPi.h
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+# On branch master
+# Your branch is up-to-date with 'origin/master'.
+#
+# You are currently reverting commit 10ea764.
+#
+# Changes to be committed:
+#	new file:   Sensor_Examples/EV3 (BETA)/BrickPi.h
+#
+
+Testing around.

@@ -9,7 +9,8 @@
 
 #include <stdio.h>
 #include <wiringPi.h>
-// gcc -o led led.c -lwiringPi
+// Compile and Run Instructions:
+// sudo gcc -o program "LED test.c" -lrt -lm -L/usr/local/lib -lwiringPi
 // sudo ./led
 
 int main()
