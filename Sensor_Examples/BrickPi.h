@@ -1,15 +1,13 @@
 /*
-*  Matthew Richardson
-*  matthewrichardson37<at>gmail.com
-*  http://mattallen37.wordpress.com/
+*  Originally Written by Matthew Richardson
+*  matthewrichardson37<at>gmail.com  *  http://mattallen37.wordpress.com/
 *  
-*  Jaikrishna T S
-*  t.s.jaikrishna<at>gmail.com
+*  Updated by Jaikrishna T S  *  t.s.jaikrishna<at>gmail.com
 *
-*  Updated by John Cole, Dexter Industries.   
+*  Updated by John Cole * Dexter Industries.   
 *
 *  Initial date: June 4, 2013
-*  Last updated: June 19, 2014
+*  Last updated: Feb 17, 2014
 *
 * These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
 * (http://creativecommons.org/licenses/by-sa/3.0/)
@@ -33,14 +31,23 @@
 * microcontrollers will think the transmission is complete, realize the message doesn't make sense, throw it away, and not return
 * a message to the RPi. The RPi will then fail to receive a message in the specified amount of time, timeout, and then retry the
 * communication.
+*
+* Some more in-depth debugging information:
+*    BrickPiRx error: -4; // Buffer is too small to be anything.  Maybe you only got one byte back?
+*    BrickPiRx error: -6; // Buffer incomplete.  Again, the buffer is smaller than expected.  
+*    BrickPiRx error: -5;  // Checksum is wrong.  The checksum position was calculated wrong, something was dropped in the serial communication or didn't make it into the buffer.
+*
 */
 
 #ifndef __BrickPi_h_
 #define __BrickPi_h_
 
-// #define DEBUG
+// #define DEBUG		// Define this if you want debugging messages on.
 
-#include <wiringPi.h>
+#include <stdio.h>
+#include <unistd.h>			//Used for UART
+#include <fcntl.h>			//Used for UART
+#include <termios.h>		//Used for UART
 
 #define PORT_A 0
 #define PORT_B 1
@@ -139,6 +146,9 @@
 # define LEGO_US_I2C_ADDR 0x02
 # define LEGO_US_I2C_DATA_REG 0x42
 //US Fix ends
+
+//Setup USART Stream 0
+int uart0_filestream = -1;
 
 long gotten_bits = 0;
 
@@ -424,6 +434,7 @@ int BrickPiSetupSensors(){
     }
     unsigned char UART_TX_BYTES = (((Bit_Offset + 7) / 8) + 3);
     BrickPiTx(BrickPi.Address[i], UART_TX_BYTES, Array);
+	// printf("Sent!");
     if(BrickPiRx(&BytesReceived, Array, 5000000))
       return -1;
     if(!(BytesReceived == 1 && Array[BYTE_MSG_TYPE] == MSG_TYPE_SENSOR_TYPE))
@@ -674,10 +685,50 @@ __RETRY_COMMUNICATION__:
 int UART_file_descriptor = 0; 
 
 int BrickPiSetup(){
-  UART_file_descriptor = serialOpen("/dev/ttyAMA0", 500000);
+
+	
+	//OPEN THE UART
+	//The flags (defined in fcntl.h):
+	//	Access modes (use 1 of these):
+	//		O_RDONLY - Open for reading only.
+	//		O_RDWR - Open for reading and writing.
+	//		O_WRONLY - Open for writing only.
+	//
+	//	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
+	//											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
+	//											immediately with a failure status if the output can't be written immediately.
+	//
+	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
+	uart0_filestream = open("/dev/ttyAMA0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
+	if (uart0_filestream == -1)
+	{
+		//ERROR - CAN'T OPEN SERIAL PORT
+		printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
+	}
+	
+	//CONFIGURE THE UART
+	//The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
+	//	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800, B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
+	//	CSIZE:- CS5, CS6, CS7, CS8
+	//	CLOCAL - Ignore modem status lines
+	//	CREAD - Enable receiver
+	//	IGNPAR = Ignore characters with parity errors
+	//	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
+	//	PARENB - Parity enable
+	//	PARODD - Odd parity (else even)
+	struct termios options;
+	tcgetattr(uart0_filestream, &options);
+	options.c_cflag = B500000 | CS8 | CLOCAL | CREAD;		//<Set baud rate
+	options.c_iflag = IGNPAR;
+	options.c_oflag = 0;
+	options.c_lflag = 0;
+	tcflush(uart0_filestream, TCIFLUSH);
+	tcsetattr(uart0_filestream, TCSANOW, &options);  
+  
+  /*UART_file_descriptor = serialOpen("/dev/ttyAMA0", 500000);
   if(UART_file_descriptor == -1){
     return -1;
-  }
+  }*/
   return 0;
 }
 
@@ -687,16 +738,22 @@ void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArr
   tx_buffer[1] = dest + ByteCount;
   tx_buffer[2] = ByteCount;  
   unsigned char i = 0;
+  
   while(i < ByteCount){
     tx_buffer[1] += OutArray[i];
     tx_buffer[i + 3] = OutArray[i];
     i++;
   }
+  #ifdef DEBUG
+  //  printf("Buffer: %s\n", tx_buffer);
+  //  printf("Buffer Size: %i\n", ByteCount);
+  #endif
   i = 0;
   while(i < (ByteCount + 3)){
-    serialPutchar(UART_file_descriptor, tx_buffer[i]);
+	write(uart0_filestream, &tx_buffer[i], 1);
     i++;
   }
+  
 }
 
 int BrickPiRx(unsigned char *InBytes, unsigned char *InArray, long timeout){  // timeout in uS, not mS
@@ -706,33 +763,27 @@ int BrickPiRx(unsigned char *InBytes, unsigned char *InArray, long timeout){  //
   unsigned char i = 0;
   int result;
   unsigned long OrigionalTick = CurrentTickUs();
-  while(serialDataAvail(UART_file_descriptor) <= 0){
-    if(timeout && ((CurrentTickUs() - OrigionalTick) >= timeout))return -2;
-  }
 
-  RxBytes = 0;
-  while(RxBytes < serialDataAvail(UART_file_descriptor)){                                   // If it's been 1 ms since the last data was received, assume it's the end of the message.
-    RxBytes = serialDataAvail(UART_file_descriptor);
-    usleep(75);
-  }
+  // Check the buffer for values.  If we don't find anything, wait 0.1ms and check again. 
+  // If we timeout, exit and return -2. 
   
-  i = 0;  
-  while(i < RxBytes){
-    result = serialGetchar(UART_file_descriptor);
-    if(result >= 0){
-      rx_buffer[i] = result;
-    }
-    else{      
-      return -1;    
-    }
-    i++;    
+  int rx_length = -1;		//Filestream, buffer to store in, number of bytes to read (max)  
+  while(rx_length < 0){
+	rx_length = read(uart0_filestream, (void*)rx_buffer, 255);
+	usleep(100);
+    if(timeout && ((CurrentTickUs() - OrigionalTick) >= timeout))  return -2;		// Timeout.
   }
+  #ifdef DEBUG
+    printf("Bytes read: %i\n", rx_length);
+  #endif
+  
+  RxBytes = rx_length;
 
   if(RxBytes < 2)
-    return -4;
+    return -4; // Buffer is too small to be anything.  
   
   if(RxBytes < (rx_buffer[1] + 2))
-    return -6;
+    return -6; // Buffer incomplete.
   
   CheckSum = rx_buffer[1];
   
@@ -744,10 +795,10 @@ int BrickPiRx(unsigned char *InBytes, unsigned char *InArray, long timeout){  //
   }
   
   if(CheckSum != rx_buffer[0])
-    return -5;
+    return -5;  // Checksum is wrong.
   
   *InBytes = (RxBytes - 2);
-
+  
   return 0;  
 }
 

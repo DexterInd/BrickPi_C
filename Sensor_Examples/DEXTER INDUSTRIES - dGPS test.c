@@ -1,7 +1,13 @@
 /*
-*  Jaikrishna
-*  t.s.jaikrishna<at>gmail.com
+*  Jaikrishna  *  t.s.jaikrishna<at>gmail.com
+*  Updated by: John
+
+*  See more about the Dexter Industries dGPS here:		http://dexterindustries.com/dGPS.html
+*  See more about the Dexter Industries BrickPi here:  	http://dexterindustries.com/BrickPi.html
+
+*
 *  Initial date: June 21, 2013
+*  Updated:		 Feb 17, 2015
 *  Based on Matthew Richardson's example on testing BrickPi drivers and Xander Soldaat's Example on NXT for RobotC
 *  You may use this code as you wish, provided you give credit where it's due.
 *  
@@ -14,25 +20,17 @@
 #include <time.h>
 #include <math.h>
 #include "tick.h"
-
-#include <wiringPi.h>
-
 #include "BrickPi.h"
 
-//#include <unistd.h>  
-//#include <errno.h>  
-//#include <stdio.h>  
-//#include <stdlib.h>  
 #include <linux/i2c-dev.h>  
-//#include <sys/ioctl.h>  
 #include <fcntl.h>
 
-// gcc -o program "Test BrickPi lib.c" -lrt -lm -L/usr/local/lib -lwiringPi
-// gcc -o program "Test BrickPi lib.c" -lrt
-// ./program
+// Compile with:
+// sudo gcc -o program "DEXTER INDUSTRIES - dGPS test.c" -lrt -lm
+// Run the compiled program with:
+// sudo ./program
 
 int result;
-
 
 long UTC, lat, lon, alttd, hdop, vwsat;
 unsigned short head,velo,status;

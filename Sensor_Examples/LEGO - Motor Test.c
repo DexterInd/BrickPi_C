@@ -18,15 +18,11 @@
 
 #include "BrickPi.h"
 
-//#include <unistd.h>  
-//#include <errno.h>  
-//#include <stdio.h>  
-//#include <stdlib.h>  
+
 #include <linux/i2c-dev.h>  
-//#include <sys/ioctl.h>  
 #include <fcntl.h>
-// gcc -o program "Test BrickPi lib.c" -lrt -lm -L/usr/local/lib -lwiringPi
-// gcc -o program "Test BrickPi lib.c" -lrt
+// sudo gcc -o program "LEGO - Motor Test.c" -lrt -lm -L/usr/local/lib -lwiringPi
+// sudo gcc -o program "LEGO - Motor Test.c" -lrt
 // ./program
 
 int result,v,f;

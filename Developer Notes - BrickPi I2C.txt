@@ -19,4 +19,3 @@ There is an I2C write buffer for each I2C device, called BrickPi.SensorI2COut. Y
 There is an I2C read buffer for each I2C device, called BrickPi.SensorI2CIn. You can access each byte using e.g. value = BrickPi.SensorI2CIn[PORT_1][5][3]; which would set value to port 1, device 6, read buffer byte 4.
 
 The sensor type (e.g. TYPE_SENSOR_I2C), bus speed, number of devices, device I2C address(es), and device I2C settings, are sent to the BrickPi using function BrickPiSetupSensors(). In the case of the flag BIT_I2C_SAME being used for a device, the number of bytes to write and read, and the bytes to write are sent to the BrickPi when you call BrickPiSetupSensors(). If you don't use flag BIT_I2C_SAME for a device, the number of bytes to write and read, and the bytes to write are sent every time you call BrickPiUpdateValues().
-

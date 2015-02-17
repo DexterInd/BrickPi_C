@@ -2,7 +2,7 @@
 *  Jaikrishna
 *  t.s.jaikrishna<at>gmail.com
 *  Initial date:  	June 21, 2013
-*  Updated : 		May 30, 2014
+*  Updated : 		Feb 17, 2015 (By John)
 *  Based on Matthew Richardson's example on testing BrickPi drivers and Xander Soldaat's Example on NXT for RobotC
 *  You may use this code as you wish, provided you give credit where it's due.
 *  
@@ -26,17 +26,13 @@
 
 #include "BrickPi.h"
 
-//#include <unistd.h>  
-//#include <errno.h>  
-//#include <stdio.h>  
-//#include <stdlib.h>  
 #include <linux/i2c-dev.h>  
-//#include <sys/ioctl.h>  
 #include <fcntl.h>
 
-// gcc -o program "Test BrickPi lib.c" -lrt -lm -L/usr/local/lib -lwiringPi
-// gcc -o program "Test BrickPi lib.c" -lrt
-// ./program
+// Compile the program: 
+// sudo gcc -o program "DEXTER INDUSTRIES - dCompass test.c" -lrt -lm 
+// Run the compiled program:
+// sudo ./program
 
 int result;
 
