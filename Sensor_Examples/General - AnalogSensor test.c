@@ -2,6 +2,7 @@
 *  Jaikrishna
 *  t.s.jaikrishna<at>gmail.com
 *  Initial date: June 20, 2013
+*  Updated:  Feb 17, 2015 (John)
 *  Based on Matthew Richardson's Example for testing BrickPi
 *  You may use this code as you wish, provided you give credit where it's due.
 *
@@ -13,22 +14,14 @@
 #include <time.h>
 
 #include "tick.h"
-
-#include <wiringPi.h>
-
 #include "BrickPi.h"
-
-//#include <unistd.h>  
-//#include <errno.h>  
-//#include <stdio.h>  
-//#include <stdlib.h>  
 #include <linux/i2c-dev.h>  
-//#include <sys/ioctl.h>  
 #include <fcntl.h>
 
-// gcc -o program "Test BrickPi lib.c" -lrt -lm -L/usr/local/lib -lwiringPi
-// gcc -o program "Test BrickPi lib.c" -lrt
-// ./program
+// Compile Using:
+// sudo gcc -o program "General - AnalogSensor test.c" -lrt -lm
+// Run the compiled program using:
+// sudo ./program
 
 int result;
 #undef DEBUG

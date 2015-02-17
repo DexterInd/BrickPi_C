@@ -52,8 +52,13 @@
 #include "BrickPi.h"
 
 
-// gcc -o program MINDSENSORS_PSP.c -lrt -lm -L/usr/local/lib -lwiringPi
-// ./program
+#include <linux/i2c-dev.h>  
+#include <fcntl.h>
+
+// Compile Using:
+// sudo gcc -o program "MINDSENSORS_PSP.c" -lrt -lm
+// Run the compiled program using:
+// sudo ./program
 
 #define I2C_PORT  PORT_1                             // I2C port for the dCompass
 #define I2C_SPEED 6                                  // delay for as little time as possible. Usually about 100k baud

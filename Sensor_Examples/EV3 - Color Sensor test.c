@@ -2,7 +2,7 @@
 *  Jaikrishna
 *  t.s.jaikrishna<at>gmail.com
 *  Initial date: June 9, 2014
-*  Updated date: June 11, 2014 (John)
+*  Updated date: Feb 17, 2015 (John)
 *  You may use this code as you wish, provided you give credit where it's due.
 *
 *  This is a program for testing the RPi BrickPi driver with EV3 Color Sensor
@@ -16,22 +16,15 @@
 #include <time.h>
 
 #include "tick.h"
-
-#include <wiringPi.h>
-
 #include "BrickPi.h"
 
-//#include <unistd.h>  
-//#include <errno.h>  
-//#include <stdio.h>  
-//#include <stdlib.h>  
 #include <linux/i2c-dev.h>  
-//#include <sys/ioctl.h>  
 #include <fcntl.h>
 
-// gcc -o program "Test BrickPi lib.c" -lrt -lm -L/usr/local/lib -lwiringPi
-// gcc -o program "Test BrickPi lib.c" -lrt
-// ./program
+// To compile:
+// sudo gcc -o program "EV3 - Color Sensor test.c" -lrt -lm 
+// To Run:
+// sudo ./program
 //#define DEBUG
 int result,val;
 //#undef DEBUG

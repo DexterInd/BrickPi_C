@@ -2,6 +2,7 @@
 *  
 *  Dexter Industries BrickPi Example: Using the EV3 Touch sensor
 *  Initial date: June 20, 2014
+*  Updated:  Feb 17, 2015 (John)
 *  Based on Matthew Richardson's Example for testing BrickPi
 *  You may use this code as you wish, provided you give credit where it's due.
 *
