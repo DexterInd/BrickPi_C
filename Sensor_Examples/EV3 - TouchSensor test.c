@@ -39,7 +39,7 @@ int main() {
   BrickPi.Address[1] = 2;
  
   // Define which sensors on which port. 
-  int sensor_port = PORT4;										// In this example we'll be putting the EV3 touch sensor on Port4.
+  int sensor_port = PORT_4;										// In this example we'll be putting the EV3 touch sensor on Port4.
   BrickPi.SensorType[sensor_port] = TYPE_SENSOR_EV3_TOUCH_0;	// We define port 4 as an EV3 touch sensor.
   result = BrickPiSetupSensors();								// Se setup the sensors for operation.  This initializes sensors on the BrickPi.
   printf("BrickPi Setup Sensors: %d\n", result); 				// Return our results.
