@@ -757,7 +757,7 @@ void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArr
   
 }
 
-int BrickPiRead(int fd, void *buf, size_t count, long usec){
+int BrickPiRead(int fd, unsigned char* buf, ssize_t count, long usec){
   fd_set readfds;
   struct timeval timeout;
   size_t bytes;
