@@ -26,7 +26,7 @@
 //#define DEBUG
 int result,val;
 //#undef DEBUG
-#define US_PORT         PORT_2                      // For the FW Ultrasonic sensor support, use port 3
+#define US_PORT         PORT_1                      // For the FW Ultrasonic sensor support, use port 3
 
 int main() {
   ClearTick();
@@ -53,11 +53,11 @@ int main() {
 
       if(!result){
       	 val = BrickPi.Sensor[US_PORT];
-	       if(val <= 2550)
+           //if(val <= 2550)
           printf("Results: %d \n", val );
    
        }
-      //usleep(1000);
+      usleep(1000);
     }
   }
   return 0;

@@ -48,6 +48,7 @@
 #include <unistd.h>			//Used for UART
 #include <fcntl.h>			//Used for UART
 #include <termios.h>		//Used for UART
+#include <sys/select.h>     // Used for RX
 
 #define PORT_A 0
 #define PORT_B 1
@@ -756,50 +757,69 @@ void BrickPiTx(unsigned char dest, unsigned char ByteCount, unsigned char OutArr
   
 }
 
+int BrickPiRead(int fd, unsigned char* buf, ssize_t count, long usec){
+  fd_set readfds;
+  struct timeval timeout;
+  size_t bytes;
+  int n;
+
+  // wait for bytes available
+  do {
+     FD_ZERO(&readfds);
+     FD_SET(fd, &readfds);
+
+     timeout.tv_sec  = 0;
+     timeout.tv_usec = usec;
+
+     n = select(fd + 1, &readfds, NULL, NULL, &timeout);
+     if (n < 0) {
+         perror("select"); // select failed
+         return -1;
+     }
+     if (n == 0) return -2; // select timeout
+
+     bytes = read(fd, buf, count);
+
+     if (bytes < 0) {
+         perror("read");
+         return -1;
+     }
+
+     if (bytes == 0) {
+         fprintf(stderr, "broken uart connection\n");
+         return -1;
+     }
+
+     count -= bytes;
+     buf += bytes;
+  } while(count > 0);
+
+  return 0;
+}
+
 int BrickPiRx(unsigned char *InBytes, unsigned char *InArray, long timeout){  // timeout in uS, not mS
-  unsigned char rx_buffer[256];
-  unsigned char RxBytes = 0;
-  unsigned char CheckSum = 0;
-  unsigned char i = 0;
-  int result;
-  unsigned long OrigionalTick = CurrentTickUs();
+  unsigned char header[2];
+  unsigned char check_sum = 0;
+  int i, ret = -1;
 
-  // Check the buffer for values.  If we don't find anything, wait 0.1ms and check again. 
-  // If we timeout, exit and return -2. 
-  
-  int rx_length = -1;		//Filestream, buffer to store in, number of bytes to read (max)  
-  while(rx_length < 0){
-	rx_length = read(uart0_filestream, (void*)rx_buffer, 255);
-	usleep(100);
-    if(timeout && ((CurrentTickUs() - OrigionalTick) >= timeout))  return -2;		// Timeout.
-  }
-  #ifdef DEBUG
-    printf("Bytes read: %i\n", rx_length);
-  #endif
-  
-  RxBytes = rx_length;
+  // read header
+  ret = BrickPiRead(uart0_filestream, header, 2, timeout);
+  if(ret) return ret; // read fail
 
-  if(RxBytes < 2)
-    return -4; // Buffer is too small to be anything.  
+  // read data
+  ret = BrickPiRead(uart0_filestream, InArray, header[1], timeout);
+  if(ret) return ret; // read fail
+
+  // check sum
+  check_sum = header[1];
+  for(i=0; i<header[1]; i++) check_sum += InArray[i];
   
-  if(RxBytes < (rx_buffer[1] + 2))
-    return -6; // Buffer incomplete.
-  
-  CheckSum = rx_buffer[1];
-  
-  i = 0;
-  while(i < (RxBytes - 2)){
-    CheckSum += rx_buffer[i + 2];
-    InArray[i] = rx_buffer[i + 2];
-    i++;
-  }
-  
-  if(CheckSum != rx_buffer[0])
+  if(check_sum != header[0])
     return -5;  // Checksum is wrong.
   
-  *InBytes = (RxBytes - 2);
+  *InBytes = header[1];
   
-  return 0;  
+  return 0;    
 }
 
 #endif
